@@ -128,15 +128,40 @@ export function generateStageViaSimulation(rng, N, moveRangeMax) {
 
 /**
  * リトライ機能付き生成
+ * - ブロック率がターゲット範囲内なら即座に返却
+ * - 範囲外でも、ターゲットに最も近い結果を返す
  */
-export function generateStageViaSimulationWithRetry(rng, N, moveRangeMax, blockRatioMin = 0.2, blockRatioMax = 0.5, maxRetries = 20) {
+export function generateStageViaSimulationWithRetry(rng, N, moveRangeMax, blockRatioMin = 0.2, blockRatioMax = 0.5, maxRetries = N*10) {
+    let stageData = null;
+    let bestDistance = Infinity;
+    
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-        const stageData = generateStageViaSimulation(rng, N, moveRangeMax);
-        const blockRatio = stageData.blockCount / (N * N);
-        if (blockRatio >= blockRatioMin && blockRatio <= blockRatioMax) {
+        const tmpStageData = generateStageViaSimulation(rng, N, moveRangeMax);
+        const tmpBlockRatio = tmpStageData.blockCount / (N * N);
+        
+        // ターゲット範囲との距離を計算
+        let distance;
+        if (tmpBlockRatio >= blockRatioMin && tmpBlockRatio <= blockRatioMax) {
+            // 範囲内なら距離 = 0 で即座に採用
+            distance = 0;
+        } else if (tmpBlockRatio < blockRatioMin) {
+            distance = blockRatioMin - tmpBlockRatio;
+        } else {
+            distance = tmpBlockRatio - blockRatioMax;
+        }
+        
+        // 最良の結果を更新
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            stageData = tmpStageData;
             stageData.retryCount = attempt;
-            return stageData;
+        }
+        
+        // 条件満たしたらループ抜ける
+        if (distance === 0) {
+            break;
         }
     }
-    return generateStageViaSimulation(rng, N, moveRangeMax);
+    
+    return stageData;
 }
