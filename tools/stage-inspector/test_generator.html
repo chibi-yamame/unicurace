@@ -30,7 +30,7 @@
         <label for="gridSize">サイズ:</label>
         <input type="number" id="gridSize" value="6" min="4" max="20">
         
-        <label for="stageCount">数:</label>
+        <label for="stageCount">ステージ数:</label>
         <input type="number" id="stageCount" value="12" min="1" max="50">
         
         <label for="startSeed">シード:</label>
@@ -63,7 +63,7 @@
             const rng = new SeededRandom(startSeed);
 
             for (let i = 0; i < stageCount; i++) {
-                const stageData = generateStageViaSimulationWithRetry(rng, N, 10, blockRatioMin, blockRatioMax);
+                const stageData = generateStageViaSimulationWithRetry(rng, N, 2*N, blockRatioMin, blockRatioMax);
                 const solution = findSolutionPath(N, stageData.grid, stageData.startPos);
                 
                 const card = document.createElement('div');

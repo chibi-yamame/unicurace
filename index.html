@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Unicurace - Single Player</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            overflow: hidden; /* スクロール禁止 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        section {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+        }
+        section.active { display: flex; }
+
+        h1 { font-size: 3rem; margin-bottom: 1rem; color: var(--primary-color); }
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn:active { transform: scale(0.95); }
+
+        /* カウントダウン */
+        #countdown-text { font-size: 8rem; font-weight: bold; color: var(--primary-color); }
+
+        /* ゲーム画面 */
+        .game-header { width: 100%; display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 1.2rem; }
+        #game-canvas { background: white; border: 4px solid #333; box-shadow: 0 10px 20px rgba(0,0,0,0.1); max-width: 90vw; max-height: 90vw; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. タイトル画面 -->
+    <section id="screen-title" class="active">
+        <h1>Unicurace</h1>
+        <p>一筆書き塗りつぶしパズル</p>
+        <button class="btn" id="btn-to-gen">ゲーム開始</button>
+    </section>
+
+    <!-- 2. ステージ生成画面 -->
+    <section id="screen-generation">
+        <h2>ステージ構築中...</h2>
+        <p id="gen-progress">0 / 5 完了</p>
+        <button class="btn" id="btn-to-countdown" disabled>開始</button>
+    </section>
+
+    <!-- 3. 開始カウントダウン画面 -->
+    <section id="screen-countdown">
+        <div id="countdown-text">3</div>
+    </section>
+
+    <!-- 4. ゲーム画面 -->
+    <section id="screen-game">
+        <div class="game-header">
+            <div id="stage-number">STAGE 1 / 5</div>
+            <div id="game-timer">00:00.00</div>
+        </div>
+        <canvas id="game-canvas"></canvas>
+        <p>※スワイプで操作（実装予定）</p>
+        <button class="btn" style="margin-top:20px; font-size: 0.8rem; padding: 10px 20px;" id="btn-skip-stage">（デバッグ用）次へ</button>
+    </section>
+
+    <script type="module">
+        import { SeededRandom } from './src/utils/random.js';
+        import { findSolutionPath } from './src/core/solver.js';
+        import { generateStageViaSimulationWithRetry } from './src/core/generator.js';
+        import { renderGame } from './src/view/renderer.js';
+
+        // --- 定数定義 ---
+        const CONFIG = {
+            gridSize: 6,
+            stageTotal: 5,
+            blockRatioMin: 0.15,
+            blockRatioMax: 0.35,
+            moveSpeed: 0.2, // 石の移動速度（1マスあたりの秒数）
+            canvasSize: 400
+        };
+
+        // ゲーム状態
+        let state = {
+            stages: [],
+            currentStageIdx: 0,
+            startTime: 0,
+            elapsedTime: 0,
+            timerId: null,
+            isMoving: false, // 石が移動中かどうか
+            playerPos: { x: 0, y: 0 }, // 現在の石の位置
+            currentPainted: [] // 現在のステージの塗りつぶし状況
+        };
+
+        // 画面遷移
+        function showScreen(screenId) {
+            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        // --- 1. タイトル画面処理 ---
+        document.getElementById('btn-to-gen').onclick = () => {
+            showScreen('screen-generation');
+            startStageGeneration();
+        };
+
+        // --- 2. ステージ生成画面処理 ---
+        async function startStageGeneration() {
+            state.stages = [];
+            const btn = document.getElementById('btn-to-countdown');
+            const progress = document.getElementById('gen-progress');
+            btn.disabled = true;
+
+            const seed = Date.now();
+            const rng = new SeededRandom(seed);
+
+            for (let i = 0; i < CONFIG.stageTotal; i++) {
+                let stageData = null;
+                let solvable = false;
+
+                // 解けるステージが見つかるまで回す
+                while (!solvable) {
+                    stageData = generateStageViaSimulationWithRetry(
+                        rng, CONFIG.gridSize, 10, CONFIG.blockRatioMin, CONFIG.blockRatioMax
+                    );
+                    const solution = findSolutionPath(CONFIG.gridSize, stageData.grid, stageData.startPos);
+                    if (solution) solvable = true;
+                }
+
+                state.stages.push(stageData);
+                progress.textContent = `${i + 1} / ${CONFIG.stageTotal} 完了`;
+                await new Promise(r => setTimeout(r, 100)); // 演出用
+            }
+
+            btn.disabled = false;
+        }
+
+        document.getElementById('btn-to-countdown').onclick = () => {
+            if (state.stages.length < CONFIG.stageTotal) return;
+            showScreen('screen-countdown');
+            startCountdown();
+        };
+
+        // --- 3. カウントダウン画面処理 ---
+        function startCountdown() {
+            const text = document.getElementById('countdown-text');
+            let count = 3;
+            text.textContent = count;
+
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    text.textContent = count;
+                } else if (count === 0) {
+                    text.textContent = "GO!";
+                } else {
+                    clearInterval(interval);
+                    startGame();
+                }
+            }, 1000);
+        }
+
+        // --- 4. ゲーム画面処理 ---
+        function startGame() {
+            showScreen('screen-game');
+            state.currentStageIdx = 0;
+            state.startTime = performance.now();
+            updateTimer();
+            loadStage(0);
+        }
+
+        function updateTimer() {
+            const now = performance.now();
+            state.elapsedTime = now - state.startTime;
+            
+            const diff = new Date(state.elapsedTime);
+            const m = String(diff.getUTCMinutes()).padStart(2, '0');
+            const s = String(diff.getUTCSeconds()).padStart(2, '0');
+            const ms = String(Math.floor(diff.getUTCMilliseconds() / 10)).padStart(2, '0');
+            
+            document.getElementById('game-timer').textContent = `${m}:${s}.${ms}`;
+            state.timerId = requestAnimationFrame(updateTimer);
+        }
+
+        function loadStage(idx) {
+            if (idx >= CONFIG.stageTotal) {
+                finishGame();
+                return;
+            }
+            const stageData = state.stages[idx];
+            document.getElementById('stage-number').textContent = `STAGE ${idx + 1} / ${CONFIG.stageTotal}`;
+            
+            // プレイ用データの初期化
+            state.playerPos = { ...stageData.startPos };
+            state.currentPainted = stageData.grid.map(row => row.map(cell => cell === 1)); // ブロックは塗り済み扱い
+            state.currentPainted[state.playerPos[1]][state.playerPos[0]] = true; // スタート地点を塗る
+
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const canvas = document.getElementById('game-canvas');
+            const stageData = state.stages[state.currentStageIdx];
+            if (!stageData) return;
+            renderGame(canvas, stageData, state.playerPos, state.currentPainted, CONFIG);
+        }
+
+        function finishGame() {
+            cancelAnimationFrame(state.timerId);
+            alert(`全ステージクリア！\nタイム: ${document.getElementById('game-timer').textContent}`);
+            showScreen('screen-title');
+        }
+
+        // デバッグ用: ステージスキップ
+        document.getElementById('btn-skip-stage').onclick = () => {
+            state.currentStageIdx++;
+            loadStage(state.currentStageIdx);
+        };
+
+    </script>
+</body>
+</html>
