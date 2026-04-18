@@ -32,6 +32,9 @@
         
         <label for="stageCount">ステージ数:</label>
         <input type="number" id="stageCount" value="12" min="1" max="50">
+
+        <label for="maxMoveDistance">最大移動距離:</label>
+        <input type="number" id="maxMoveDistance" value="12" min="1" max="50">
         
         <label for="startSeed">シード:</label>
         <input type="number" id="startSeed" value="12345">
@@ -53,6 +56,7 @@
         async function runGeneration() {
             const N = parseInt(document.getElementById('gridSize').value);
             const stageCount = parseInt(document.getElementById('stageCount').value);
+            const maxMoveDistance = parseInt(document.getElementById('maxMoveDistance').value);
             const startSeed = parseInt(document.getElementById('startSeed').value);
             const blockRatioMin = parseFloat(document.getElementById('blockRatioMin').value);
             const blockRatioMax = parseFloat(document.getElementById('blockRatioMax').value);
@@ -63,7 +67,7 @@
             const rng = new SeededRandom(startSeed);
 
             for (let i = 0; i < stageCount; i++) {
-                const stageData = generateStageViaSimulationWithRetry(rng, N, 2*N, blockRatioMin, blockRatioMax);
+                const stageData = generateStageViaSimulationWithRetry(rng, N, maxMoveDistance, blockRatioMin, blockRatioMax);
                 const solution = findSolutionPath(N, stageData.grid, stageData.startPos);
                 
                 const card = document.createElement('div');
@@ -71,7 +75,8 @@
 
                 const blockPct = (stageData.blockCount / (N * N) * 100).toFixed(1);
                 const statusClass = solution ? 'success' : 'error';
-                const statusText = solution ? `✓ ${solution.length}手 | ${blockPct}%` : `✗ 解なし | ${blockPct}%`;
+                const retryText = stageData.retryCount ? ` | R${stageData.retryCount}` : '';
+                const statusText = solution ? `✓ ${solution.length}手 | ${blockPct}%${retryText}` : `✗ 解なし | ${blockPct}%`;
 
                 card.innerHTML = `
                     <h3>Stage ${i + 1}</h3>

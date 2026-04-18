@@ -33,8 +33,17 @@
         section.active { display: flex; }
 
         h1 { font-size: 2rem; margin-bottom: 1rem; color: var(--primary-color); }
+        
+        /* シード入力関連 */
+        .seed-container { margin: 20px 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        .seed-input-group { display: flex; gap: 5px; }
+        #title-seed-input { padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 120px; text-align: center; font-size: 1.1rem; }
+        .btn-small { padding: 8px 15px; font-size: 0.9rem; background-color: #6c757d; border-radius: 8px; }
+        .seed-label { font-size: 0.9rem; color: #666; }
+        #display-seed { font-weight: bold; color: var(--primary-color); margin-top: 5px; }
+
         .btn {
-            padding: 15px 40px;
+            padding: 15px 20px;
             font-size: 1.2rem;
             cursor: pointer;
             background-color: var(--primary-color);
@@ -52,11 +61,13 @@
 
         /* ゲーム画面 */
         .game-header { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
-        .timer-container { display: flex; flex-direction: column; align-items: center; }
         .main-stats { width: 100%; display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 5px; }
         #game-canvas { background: white; border: 4px solid #333; box-shadow: 0 10px 20px rgba(0,0,0,0.1); max-width: 90vw; max-height: 90vw; }
         #penalty-timer { color: #ff4757; font-size: 0.9rem; font-weight: bold; min-height: 1.2em; }
-        .game-controls { display: flex; gap: 10px; margin-top: 20px; }
+        
+        .system-controls { width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .game-controls { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 20px; }
+        .btn-system { padding: 8px 15px; font-size: 0.8rem; border-radius: 8px; background-color: #6c757d; color: white; border: none; cursor: pointer; }
 
         /* ペナルティポップアップ演出 */
         .penalty-popup {
@@ -90,13 +101,23 @@
     <section id="screen-title" class="active">
         <h1>Unicurace</h1>
         <p>一筆書き塗りつぶしパズル</p>
+        
+        <div class="seed-container">
+            <span class="seed-label">シード共有 (最大6桁)</span>
+            <div class="seed-input-group">
+                <input type="number" id="title-seed-input" placeholder="任意" min="0" max="999999" oninput="if(value.length>6)value=value.slice(0,6)">
+                <button class="btn btn-small" id="btn-random-seed">ランダム</button>
+            </div>
+        </div>
+
         <button class="btn" id="btn-to-gen">ゲーム開始</button>
     </section>
 
     <!-- 2. ステージ生成画面 -->
     <section id="screen-generation">
-        <h2>ステージ構築中...</h2>
+        <h2 id="gen-status-title">ステージ構築中...</h2>
         <p id="gen-progress">0 / 5 完了</p>
+        <p id="display-seed">シード: -</p>
         <button class="btn" id="btn-to-countdown" disabled>開始</button>
     </section>
 
@@ -107,6 +128,10 @@
 
     <!-- 4. ゲーム画面 -->
     <section id="screen-game">
+        <div class="system-controls">
+            <button class="btn-system" style="background-color: #6c757d;" id="btn-giveup">ギブアップ</button>
+            <button class="btn-system" id="btn-skip-stage">Next(Debug)</button>
+        </div>
         <div class="game-header">
             <div class="main-stats">
                 <div id="stage-number">STAGE 1 / 5</div>
@@ -116,9 +141,7 @@
         </div>
         <canvas id="game-canvas"></canvas>
         <div class="game-controls">
-            <button class="btn" style="font-size: 1rem; padding: 10px 30px; background-color: #6c757d;" id="btn-reset-stage">リセット</button>
-            <button class="btn" style="font-size: 1rem; padding: 10px 30px; background-color: #dc3545;" id="btn-giveup">ギブアップ</button>
-            <button class="btn" style="font-size: 0.8rem; padding: 10px 20px;" id="btn-skip-stage">（デバッグ用）次へ</button>
+            <button class="btn" style="font-size: 1.2rem; padding: 15px 60px; background-color: #dc3545;" id="btn-reset-stage">リセット</button>
         </div>
     </section>
 
@@ -142,19 +165,21 @@
 
         // --- 定数定義 ---
         const CONFIG = {
-            gridSize: 6,
+            gridSize: 7,
             stageTotal: 5,
             blockRatioMin: 0.15,
             blockRatioMax: 0.35,
             moveSpeed: 0.06, // 石の移動速度（1マスあたりの秒数）
             canvasSize: 400,
-            swipeThreshold: 30 // スワイプと判定する最小ピクセル数
+            swipeThreshold: 30, // スワイプと判定する最小ピクセル数
+            penaltyTime: 3000, // ペナルティ時間（ミリ秒）
         };
 
         // ゲーム状態
         let state = {
             stages: [],
             currentStageIdx: 0,
+            currentSeed: 0,
             startTime: 0,
             elapsedTime: 0,
             timerId: null,
@@ -172,8 +197,19 @@
             document.getElementById(screenId).classList.add('active');
         }
 
+        // シード生成ボタン
+        document.getElementById('btn-random-seed').onclick = () => {
+            const randomSeed = Math.floor(Math.random() * 1000000);
+            document.getElementById('title-seed-input').value = String(randomSeed).padStart(6, '0');
+        };
+
         // --- 1. タイトル画面処理 ---
         document.getElementById('btn-to-gen').onclick = () => {
+            const seedInput = document.getElementById('title-seed-input').value;
+            // 入力がない場合は現在時刻をベースにした6桁のシードを生成
+            state.currentSeed = seedInput === '' ? (Date.now() % 1000000) : parseInt(seedInput);
+            
+            document.getElementById('display-seed').textContent = `シード: ${String(state.currentSeed).padStart(6, '0')}`;
             showScreen('screen-generation');
             startStageGeneration();
         };
@@ -181,19 +217,20 @@
         // --- 2. ステージ生成画面処理 ---
         async function startStageGeneration() {
             state.stages = [];
+            const title = document.getElementById('gen-status-title');
             const btn = document.getElementById('btn-to-countdown');
             const progress = document.getElementById('gen-progress');
             btn.disabled = true;
+            title.textContent = "ステージ構築中...";
 
-            const seed = Date.now();
-            const rng = new SeededRandom(seed);
+            const rng = new SeededRandom(state.currentSeed);
 
             for (let i = 0; i < CONFIG.stageTotal; i++) {
                 let stageData = null;
                 let solvable = false;
 
                 stageData = generateStageViaSimulationWithRetry(
-                    rng, CONFIG.gridSize, 10, CONFIG.blockRatioMin, CONFIG.blockRatioMax
+                    rng, CONFIG.gridSize, CONFIG.gridSize - 1, CONFIG.blockRatioMin, CONFIG.blockRatioMax
                 );
 
 
@@ -202,6 +239,7 @@
                 await new Promise(r => setTimeout(r, 100)); // 演出用
             }
 
+            title.textContent = "ステージ構築完了！";
             btn.disabled = false;
         }
 
@@ -248,7 +286,7 @@
             const ms = String(Math.floor(diff.getUTCMilliseconds() / 10)).padStart(2, '0');
             
             document.getElementById('game-timer').textContent = `${m}:${s}.${ms}`;
-            document.getElementById('penalty-timer').textContent = state.penaltyTime > 0 ? `+${(state.penaltyTime / 1000).toFixed(1)}s Penalty` : '';
+            document.getElementById('penalty-timer').textContent = state.penaltyTime > 0 ? `+${(state.penaltyTime / 1000).toFixed(2)}s Penalty` : '';
             state.timerId = requestAnimationFrame(updateTimer);
         }
 
@@ -406,7 +444,7 @@
             const screenGame = document.getElementById('screen-game');
             const popup = document.createElement('div');
             popup.className = 'penalty-popup';
-            popup.textContent = '+1.0s';
+            popup.textContent = '+' + (CONFIG.penaltyTime / 1000).toFixed(2) + 's';
             screenGame.appendChild(popup);
 
             // アニメーション終了後に要素を削除
@@ -418,7 +456,7 @@
         function resetCurrentStage(isAuto = false) {
             if (state.isMoving) return;
             if (!isAuto) state.manualResetCount++;
-            state.penaltyTime += 1000;
+            state.penaltyTime += CONFIG.penaltyTime;
             showPenaltyVisual();
             loadStage(state.currentStageIdx);
         }
