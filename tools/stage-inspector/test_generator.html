@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unicurace - Stage Inspector (Modular)</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f0f0; padding: 20px; margin: 0; }
+        h1 { text-align: center; margin-bottom: 20px; }
+        #controls { text-align: center; margin-bottom: 20px; padding: 15px; background-color: white; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #controls label { margin-right: 5px; font-size: 14px; }
+        #controls input { margin-right: 15px; padding: 5px; width: 60px; }
+        #controls button { padding: 10px 20px; font-size: 14px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+        #controls button:hover { background-color: #0056b3; }
+        #stageContainer { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; padding: 10px; }
+        .stageCard { background-color: white; border: 1px solid #ddd; border-radius: 5px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stageCard h3 { margin: 0 0 5px 0; font-size: 14px; text-align: center; }
+        .stageCard canvas { border: 1px solid #999; display: block; margin: 0 auto 5px; background-color: white; }
+        .status { font-size: 12px; padding: 5px; border-radius: 3px; text-align: center; margin-bottom: 5px; }
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .logToggle { font-size: 11px; color: #0066cc; cursor: pointer; text-decoration: underline; text-align: center; }
+        .logContent { display: none; font-size: 10px; background-color: #f9f9f9; border: 1px solid #ddd; padding: 5px; margin-top: 5px; max-height: 150px; overflow-y: auto; font-family: monospace; }
+        .logContent.visible { display: block; }
+    </style>
+</head>
+<body>
+    <h1>Unicurace Stage Inspector</h1>
+    <div id="controls">
+        <label for="gridSize">サイズ:</label>
+        <input type="number" id="gridSize" value="6" min="4" max="20">
+        
+        <label for="stageCount">数:</label>
+        <input type="number" id="stageCount" value="12" min="1" max="50">
+        
+        <label for="startSeed">シード:</label>
+        <input type="number" id="startSeed" value="12345">
+
+        <label for="blockRatioMin">ブロック率:</label>
+        <input type="number" id="blockRatioMin" value="0.15" step="0.05">
+        ~
+        <input type="number" id="blockRatioMax" value="0.35" step="0.05">
+
+        <button id="generateBtn">ステージ生成</button>
+    </div>
+    <div id="stageContainer"></div>
+
+    <script type="module">
+        import { SeededRandom } from '../../src/utils/random.js';
+        import { findSolutionPath } from '../../src/core/solver.js';
+        import { generateStageViaSimulationWithRetry } from '../../src/core/generator.js';
+
+        async function runGeneration() {
+            const N = parseInt(document.getElementById('gridSize').value);
+            const stageCount = parseInt(document.getElementById('stageCount').value);
+            const startSeed = parseInt(document.getElementById('startSeed').value);
+            const blockRatioMin = parseFloat(document.getElementById('blockRatioMin').value);
+            const blockRatioMax = parseFloat(document.getElementById('blockRatioMax').value);
+
+            const container = document.getElementById('stageContainer');
+            container.innerHTML = '';
+            
+            const rng = new SeededRandom(startSeed);
+
+            for (let i = 0; i < stageCount; i++) {
+                const stageData = generateStageViaSimulationWithRetry(rng, N, 10, blockRatioMin, blockRatioMax);
+                const solution = findSolutionPath(N, stageData.grid, stageData.startPos);
+                
+                const card = document.createElement('div');
+                card.className = 'stageCard';
+
+                const blockPct = (stageData.blockCount / (N * N) * 100).toFixed(1);
+                const statusClass = solution ? 'success' : 'error';
+                const statusText = solution ? `✓ ${solution.length}手 | ${blockPct}%` : `✗ 解なし | ${blockPct}%`;
+
+                card.innerHTML = `
+                    <h3>Stage ${i + 1}</h3>
+                    <canvas id="canvas-${i}" width="150" height="150"></canvas>
+                    <div class="status ${statusClass}">${statusText}</div>
+                    <div class="logToggle" data-target="log-${i}">ログを表示</div>
+                    <div class="logContent" id="log-${i}">${formatLog(stageData.log)}</div>
+                `;
+                container.appendChild(card);
+                drawStage(`canvas-${i}`, N, stageData, solution);
+            }
+
+            // ログの開閉イベント設定
+            document.querySelectorAll('.logToggle').forEach(el => {
+                el.onclick = () => {
+                    const content = document.getElementById(el.getAttribute('data-target'));
+                    content.classList.toggle('visible');
+                    el.textContent = content.classList.contains('visible') ? 'ログを隠す' : 'ログを表示';
+                };
+            });
+        }
+
+        function formatLog(log) {
+            return log.map(t => {
+                let s = `T${t.turn}: (${t.pos[0]},${t.pos[1]})`;
+                if (t.chosen) s += ` -> ${t.chosen.dir}(${t.chosen.actualDist})`;
+                if (t.blockPlaced) s += ` +B`;
+                if (t.terminated) s += ` [END]`;
+                return s;
+            }).join('<br>');
+        }
+
+        function drawStage(canvasId, N, data, solution) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const cellSize = canvas.width / N;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // グリッド描画（塗りつぶし情報を反映）
+            for (let y = 0; y < N; y++) {
+                for (let x = 0; x < N; x++) {
+                    if (data.grid[y][x] === 1) {
+                        ctx.fillStyle = '#333'; // ブロック
+                    } else if (data.painted[y][x]) {
+                        ctx.fillStyle = '#e0e0e0'; // 塗りつぶし済み
+                    } else {
+                        ctx.fillStyle = '#fff'; // 空き
+                    }
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    ctx.strokeStyle = '#999';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+
+            // 生成時の経路を青い矢印で描画
+            data.log.forEach(turn => {
+                if (turn.chosen && turn.newPos) {
+                    drawArrow(ctx, 
+                        (turn.pos[0] + 0.5) * cellSize, (turn.pos[1] + 0.5) * cellSize,
+                        (turn.newPos[0] + 0.5) * cellSize, (turn.newPos[1] + 0.5) * cellSize,
+                        cellSize * 0.2, '#0066ff');
+                }
+            });
+
+            // スタート地点
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(data.startPos[0] * cellSize, data.startPos[1] * cellSize, cellSize, cellSize);
+            ctx.fillStyle = '#fff';
+            ctx.font = `${cellSize * 0.5}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('S', (data.startPos[0] + 0.5) * cellSize, (data.startPos[1] + 0.5) * cellSize);
+        }
+
+        function drawArrow(ctx, fromX, fromY, toX, toY, headlen, color) {
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+
+        document.getElementById('generateBtn').onclick = runGeneration;
+        window.onload = runGeneration;
+    </script>
+</body>
+</html>

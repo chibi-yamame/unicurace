@@ -22,13 +22,18 @@
 
 ## プロジェクト構造
 
-- `poc4.html`: メインの実行ファイル。複数ステージの一括生成、ソルバーによる検証、UI表示を担います。
-- `stageGenerator.js`: ステージ生成のコアロジック。`SeededRandom`クラスやシミュレーションエンジンを含みます。
-- `game-specification.md`: ゲームの詳細な仕様および今後のロードマップ。
+- `src/core/`: ゲームの核心となるロジック。
+  - `generator.js`: ステージ生成エンジン。
+  - `solver.js`: パズルの解法を探索するDFSソルバー。
+- `src/utils/`: 共通ユーティリティ。
+  - `random.js`: シード付き乱数生成器。
+- `tools/stage-inspector/`: 開発・デバッグ用ツール。
+  - `index.html`: ステージ生成と解法の検証用ブラウザツール。
+- `game-specification.md`: プロジェクトの全体仕様書。
 
 ## 始め方
 
-特別なビルド手順は不要です。ブラウザで直接 `poc4.html` を開くことで動作を確認できます。
+ブラウザで `tools/stage-inspector/index.html` を開くことで、生成アルゴリズムの動作を確認できます。
 
 1. リポジトリをクローンまたはダウンロード。
 2. ブラウザ（Chrome/Edge等）で `poc4.html` を開く。
