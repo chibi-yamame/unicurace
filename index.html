@@ -364,13 +364,17 @@
             if (moveDistance === 0) return;
 
             state.isMoving = true;
+            // 移動開始時に座標をグリッドにスナップさせて浮動小数点の誤差を除去
+            state.playerPos.x = Math.round(state.playerPos.x);
+            state.playerPos.y = Math.round(state.playerPos.y);
             const startX = state.playerPos.x;
             const startY = state.playerPos.y;
             const duration = moveDistance * CONFIG.moveSpeed * 1000; // CONFIGに基づいた移動時間
             const startTime = performance.now();
 
             function animate(now) {
-                const elapsed = now - startTime;
+                // タイムスタンプの逆転を防ぐため、経過時間が0未満にならないようガード
+                const elapsed = Math.max(0, now - startTime);
                 const progress = Math.min(elapsed / duration, 1);
                 
                 // イージング（滑らかな停止）をかける場合はここを調整
