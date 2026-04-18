@@ -28,7 +28,7 @@ export function renderGame(canvas, stageData, playerPos, currentPainted, CONFIG)
             row.forEach((isPainted, x) => {
                 // 空きマスで、かつ塗られている場合
                 if (isPainted && stageData.grid[y][x] !== 1) {
-                    ctx.fillStyle = '#e0f0ff';
+                    ctx.fillStyle = '#b3d9ff'; // 塗りつぶしの色を少し濃くして視認性アップ
                     ctx.fillRect(x * cellSize + 2, y * cellSize + 2, cellSize - 4, cellSize - 4);
                 }
             });

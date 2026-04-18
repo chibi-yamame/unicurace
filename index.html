@@ -51,8 +51,37 @@
         #countdown-text { font-size: 8rem; font-weight: bold; color: var(--primary-color); }
 
         /* ゲーム画面 */
-        .game-header { width: 100%; display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 1.2rem; }
+        .game-header { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
+        .timer-container { display: flex; flex-direction: column; align-items: center; }
+        .main-stats { width: 100%; display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 5px; }
         #game-canvas { background: white; border: 4px solid #333; box-shadow: 0 10px 20px rgba(0,0,0,0.1); max-width: 90vw; max-height: 90vw; }
+        #penalty-timer { color: #ff4757; font-size: 0.9rem; font-weight: bold; min-height: 1.2em; }
+        .game-controls { display: flex; gap: 10px; margin-top: 20px; }
+
+        /* ペナルティポップアップ演出 */
+        .penalty-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4757;
+            font-size: 2.5rem;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 1000;
+            animation: penaltyFloat 1.0s ease-out forwards;
+        }
+        @keyframes penaltyFloat {
+            0% { transform: translate(-50%, -50%); opacity: 1; }
+            100% { transform: translate(-50%, -150%); opacity: 0; }
+        }
+
+        /* 結果画面 */
+        #screen-result h2 { font-size: 2.5rem; margin-bottom: 30px; color: var(--primary-color); }
+        .result-time { font-size: 3rem; font-weight: bold; color: var(--primary-color); margin: 20px 0; font-family: 'Courier New', monospace; }
+        .result-stats { font-size: 1rem; margin: 20px 0; color: #666; }
+        .result-buttons { display: flex; gap: 15px; margin-top: 30px; width: 100%; justify-content: center; }
+        .result-buttons .btn { flex: 1; max-width: 200px; }
     </style>
 </head>
 <body>
@@ -79,12 +108,30 @@
     <!-- 4. ゲーム画面 -->
     <section id="screen-game">
         <div class="game-header">
-            <div id="stage-number">STAGE 1 / 5</div>
-            <div id="game-timer">00:00.00</div>
+            <div class="main-stats">
+                <div id="stage-number">STAGE 1 / 5</div>
+                <div id="game-timer">00:00.00</div>
+            </div>
+            <div id="penalty-timer"></div>
         </div>
         <canvas id="game-canvas"></canvas>
-        <p>※スワイプで操作（実装予定）</p>
-        <button class="btn" style="margin-top:20px; font-size: 0.8rem; padding: 10px 20px;" id="btn-skip-stage">（デバッグ用）次へ</button>
+        <div class="game-controls">
+            <button class="btn" style="font-size: 1rem; padding: 10px 30px; background-color: #6c757d;" id="btn-reset-stage">リセット</button>
+            <button class="btn" style="font-size: 1rem; padding: 10px 30px; background-color: #dc3545;" id="btn-giveup">ギブアップ</button>
+            <button class="btn" style="font-size: 0.8rem; padding: 10px 20px;" id="btn-skip-stage">（デバッグ用）次へ</button>
+        </div>
+    </section>
+
+    <!-- 5. 結果画面 -->
+    <section id="screen-result">
+        <h2>全ステージクリア！</h2>
+        <p style="font-size: 1.1rem; margin-bottom: 10px;">タイム</p>
+        <div class="result-time" id="result-time">00:00.00</div>
+        <div class="result-stats" id="result-stats"></div>
+        <div class="result-buttons">
+            <button class="btn" id="btn-restart">もう一度</button>
+            <button class="btn" id="btn-to-title">タイトルへ</button>
+        </div>
     </section>
 
     <script type="module">
@@ -99,8 +146,9 @@
             stageTotal: 5,
             blockRatioMin: 0.15,
             blockRatioMax: 0.35,
-            moveSpeed: 0.2, // 石の移動速度（1マスあたりの秒数）
-            canvasSize: 400
+            moveSpeed: 0.06, // 石の移動速度（1マスあたりの秒数）
+            canvasSize: 400,
+            swipeThreshold: 30 // スワイプと判定する最小ピクセル数
         };
 
         // ゲーム状態
@@ -111,6 +159,9 @@
             elapsedTime: 0,
             timerId: null,
             isMoving: false, // 石が移動中かどうか
+            penaltyTime: 0, // ペナルティの累計（ミリ秒）
+            deadlockCount: 0, // 行き止まり回数
+            manualResetCount: 0, // 手動リセット回数
             playerPos: { x: 0, y: 0 }, // 現在の石の位置
             currentPainted: [] // 現在のステージの塗りつぶし状況
         };
@@ -141,14 +192,10 @@
                 let stageData = null;
                 let solvable = false;
 
-                // 解けるステージが見つかるまで回す
-                while (!solvable) {
-                    stageData = generateStageViaSimulationWithRetry(
-                        rng, CONFIG.gridSize, 10, CONFIG.blockRatioMin, CONFIG.blockRatioMax
-                    );
-                    const solution = findSolutionPath(CONFIG.gridSize, stageData.grid, stageData.startPos);
-                    if (solution) solvable = true;
-                }
+                stageData = generateStageViaSimulationWithRetry(
+                    rng, CONFIG.gridSize, 10, CONFIG.blockRatioMin, CONFIG.blockRatioMax
+                );
+
 
                 state.stages.push(stageData);
                 progress.textContent = `${i + 1} / ${CONFIG.stageTotal} 完了`;
@@ -162,26 +209,10 @@
             if (state.stages.length < CONFIG.stageTotal) return;
             showScreen('screen-countdown');
             startCountdown();
+            state.penaltyTime = 0;
+            state.deadlockCount = 0;
+            state.manualResetCount = 0;
         };
-
-        // --- 3. カウントダウン画面処理 ---
-        function startCountdown() {
-            const text = document.getElementById('countdown-text');
-            let count = 3;
-            text.textContent = count;
-
-            const interval = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    text.textContent = count;
-                } else if (count === 0) {
-                    text.textContent = "GO!";
-                } else {
-                    clearInterval(interval);
-                    startGame();
-                }
-            }, 1000);
-        }
 
         // --- 4. ゲーム画面処理 ---
         function startGame() {
@@ -191,17 +222,33 @@
             updateTimer();
             loadStage(0);
         }
+        
+        // カウントダウン処理
+        function startCountdown() {
+            const text = document.getElementById('countdown-text');
+            let count = 3;
+            text.textContent = count;
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) text.textContent = count;
+                else if (count === 0) text.textContent = "GO!";
+                else { clearInterval(interval); startGame(); }
+            }, 1000);
+        }
 
         function updateTimer() {
             const now = performance.now();
-            state.elapsedTime = now - state.startTime;
+            state.elapsedTime = (now - state.startTime) + state.penaltyTime;
             
             const diff = new Date(state.elapsedTime);
-            const m = String(diff.getUTCMinutes()).padStart(2, '0');
+            // Minutes can exceed 60 in some implementations of Date diff, so manual calculation
+            const totalSeconds = Math.floor(state.elapsedTime / 1000);
+            const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
             const s = String(diff.getUTCSeconds()).padStart(2, '0');
             const ms = String(Math.floor(diff.getUTCMilliseconds() / 10)).padStart(2, '0');
             
             document.getElementById('game-timer').textContent = `${m}:${s}.${ms}`;
+            document.getElementById('penalty-timer').textContent = state.penaltyTime > 0 ? `+${(state.penaltyTime / 1000).toFixed(1)}s Penalty` : '';
             state.timerId = requestAnimationFrame(updateTimer);
         }
 
@@ -214,12 +261,177 @@
             document.getElementById('stage-number').textContent = `STAGE ${idx + 1} / ${CONFIG.stageTotal}`;
             
             // プレイ用データの初期化
-            state.playerPos = { ...stageData.startPos };
+            state.playerPos = { x: stageData.startPos[0], y: stageData.startPos[1] };
             state.currentPainted = stageData.grid.map(row => row.map(cell => cell === 1)); // ブロックは塗り済み扱い
-            state.currentPainted[state.playerPos[1]][state.playerPos[0]] = true; // スタート地点を塗る
+            state.currentPainted[stageData.startPos[1]][stageData.startPos[0]] = true; // スタート地点を塗る
 
             updateDisplay();
         }
+
+        // --- 入力検知 (Swipe & Mouse) ---
+        let touchStartPos = null;
+        const canvasElement = document.getElementById('game-canvas');
+
+        const handleInputStart = (x, y) => {
+            if (state.isMoving) return;
+            touchStartPos = { x, y };
+        };
+
+        const handleInputEnd = (x, y) => {
+            if (!touchStartPos || state.isMoving) return;
+            const dx = x - touchStartPos.x;
+            const dy = y - touchStartPos.y;
+            const absX = Math.abs(dx);
+            const absY = Math.abs(dy);
+
+            if (Math.max(absX, absY) > CONFIG.swipeThreshold) {
+                if (absX > absY) {
+                    executeMove(dx > 0 ? 1 : -1, 0);
+                } else {
+                    executeMove(0, dy > 0 ? 1 : -1);
+                }
+            }
+            touchStartPos = null;
+        };
+
+        canvasElement.addEventListener('touchstart', e => {
+            e.preventDefault();
+            handleInputStart(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        window.addEventListener('touchend', e => handleInputEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
+        
+        canvasElement.addEventListener('mousedown', e => handleInputStart(e.clientX, e.clientY));
+        window.addEventListener('mouseup', e => handleInputEnd(e.clientX, e.clientY));
+
+        // --- 移動実行 & アニメーション ---
+        function executeMove(dx, dy) {
+            const stageData = state.stages[state.currentStageIdx];
+            const N = CONFIG.gridSize;
+            
+            let targetX = Math.round(state.playerPos.x);
+            let targetY = Math.round(state.playerPos.y);
+            let moveDistance = 0;
+
+            // どこまで滑れるか計算
+            while (true) {
+                const nextX = targetX + dx;
+                const nextY = targetY + dy;
+                if (nextX < 0 || nextX >= N || nextY < 0 || nextY >= N) break;
+                if (stageData.grid[nextY][nextX] === 1 || state.currentPainted[nextY][nextX]) break;
+                targetX = nextX;
+                targetY = nextY;
+                moveDistance++;
+            }
+
+            if (moveDistance === 0) return;
+
+            state.isMoving = true;
+            const startX = state.playerPos.x;
+            const startY = state.playerPos.y;
+            const duration = moveDistance * CONFIG.moveSpeed * 1000; // CONFIGに基づいた移動時間
+            const startTime = performance.now();
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // イージング（滑らかな停止）をかける場合はここを調整
+                state.playerPos.x = startX + (targetX - startX) * progress;
+                state.playerPos.y = startY + (targetY - startY) * progress;
+
+                // 通過したマスをリアルタイムで塗りつぶし
+                // progressがある程度進んでから、あるいは整数の位置を通過した際に塗る
+                const gridX = dx !== 0 ? (progress > 0.5 ? targetX : startX) : startX;
+                const gridY = dy !== 0 ? (progress > 0.5 ? targetY : startY) : startY;
+                
+                // アニメーション中の全整数座標をマーク
+                state.currentPainted[Math.floor(state.playerPos.y + 0.5)][Math.floor(state.playerPos.x + 0.5)] = true;
+
+                updateDisplay();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    state.playerPos.x = targetX;
+                    state.playerPos.y = targetY;
+                    state.isMoving = false;
+                    checkDeadlock();
+                    checkClear();
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function checkClear() {
+            const stageData = state.stages[state.currentStageIdx];
+            const isAllPainted = state.currentPainted.every((row, y) => 
+                row.every((cell, x) => stageData.grid[y][x] === 1 || cell)
+            );
+
+            if (isAllPainted) {
+                setTimeout(() => {
+                    state.currentStageIdx++;
+                    loadStage(state.currentStageIdx);
+                }, 200); // クリア後の余韻
+            }
+        }
+
+        function checkDeadlock() {
+            const stageData = state.stages[state.currentStageIdx];
+            const N = CONFIG.gridSize;
+            const dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+            
+            const canMove = dirs.some(([dx, dy]) => {
+                const nx = state.playerPos.x + dx;
+                const ny = state.playerPos.y + dy;
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return false;
+                if (stageData.grid[ny][nx] === 1 || state.currentPainted[ny][nx]) return false;
+                return true;
+            });
+
+            if (!canMove) {
+                // 全てのマスが埋まっているか確認（クリアならデッドロックではない）
+                const isAllPainted = state.currentPainted.every((row, y) => 
+                    row.every((cell, x) => stageData.grid[y][x] === 1 || cell)
+                );
+                
+                if (!isAllPainted) {
+                    state.deadlockCount++;
+                    resetCurrentStage(true);
+                }
+            }
+        }
+
+        function showPenaltyVisual() {
+            const screenGame = document.getElementById('screen-game');
+            const popup = document.createElement('div');
+            popup.className = 'penalty-popup';
+            popup.textContent = '+1.0s';
+            screenGame.appendChild(popup);
+
+            // アニメーション終了後に要素を削除
+            popup.addEventListener('animationend', () => {
+                popup.remove();
+            });
+        }
+
+        function resetCurrentStage(isAuto = false) {
+            if (state.isMoving) return;
+            if (!isAuto) state.manualResetCount++;
+            state.penaltyTime += 1000;
+            showPenaltyVisual();
+            loadStage(state.currentStageIdx);
+        }
+
+        document.getElementById('btn-reset-stage').onclick = () => {
+            resetCurrentStage();
+        };
+
+        // ギブアップ処理（タイトルに戻る）
+        document.getElementById('btn-giveup').onclick = () => {
+            cancelAnimationFrame(state.timerId);
+            showScreen('screen-title');
+        };
 
         function updateDisplay() {
             const canvas = document.getElementById('game-canvas');
@@ -230,9 +442,25 @@
 
         function finishGame() {
             cancelAnimationFrame(state.timerId);
-            alert(`全ステージクリア！\nタイム: ${document.getElementById('game-timer').textContent}`);
-            showScreen('screen-title');
+            const finalTime = document.getElementById('game-timer').textContent;
+            document.getElementById('result-time').textContent = finalTime;
+            document.getElementById('result-stats').innerHTML = `
+                全${CONFIG.stageTotal}ステージ完了<br>
+                行き止まり: ${state.deadlockCount}回 / リトライ: ${state.manualResetCount}回<br>
+                (ペナルティ合計: ${(state.penaltyTime / 1000).toFixed(1)}秒)
+            `;
+            showScreen('screen-result');
         }
+
+        // 結果画面ボタン
+        document.getElementById('btn-restart').onclick = () => {
+            showScreen('screen-generation');
+            startStageGeneration();
+        };
+        document.getElementById('btn-to-title').onclick = () => {
+            cancelAnimationFrame(state.timerId);
+            showScreen('screen-title');
+        };
 
         // デバッグ用: ステージスキップ
         document.getElementById('btn-skip-stage').onclick = () => {
