@@ -5,7 +5,9 @@ export function renderGame(canvas, stageData, playerPos, currentPainted, CONFIG)
     const N = CONFIG.gridSize;
     // 画面サイズに合わせてキャンバスをリサイズ
     const size = Math.min(window.innerWidth * 0.9, CONFIG.canvasSize);
-    canvas.width = canvas.height = size;
+    if (canvas.width !== size) {
+        canvas.width = canvas.height = size;
+    }
 
     const ctx = canvas.getContext('2d');
     const cellSize = canvas.width / N;
