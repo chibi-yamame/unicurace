@@ -1,6 +1,7 @@
 /**
  * 塗りつぶしゲーム ステージ生成エンジン
  */
+import { DIRECTIONS, slidePath } from './rules.js';
 
 /**
  * 配列内の要素をシャッフル
@@ -50,7 +51,7 @@ export function generateStageViaSimulation(rng, N, moveRangeMax) {
     let turnCount = 0;
 
     while (true) {
-        let directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+        let directions = [...DIRECTIONS];
         let turnLog = { turn: turnCount, pos: [x, y], directions: [] };
 
         if (turnCount === 0) {
@@ -65,14 +66,7 @@ export function generateStageViaSimulation(rng, N, moveRangeMax) {
         let moved = false;
 
         for (const [dx, dy] of directions) {
-            let maxDist = 0;
-            for (let d = 1; d <= moveRangeMax; d++) {
-                const nx = x + dx * d;
-                const ny = y + dy * d;
-                if (nx < 0 || nx >= N || ny < 0 || ny >= N) break;
-                if (painted[ny][nx]) break;
-                maxDist = d;
-            }
+            const maxDist = slidePath(painted, x, y, dx, dy, moveRangeMax).length;
 
             const dirName = dx === 1 ? '右' : dx === -1 ? '左' : dy === 1 ? '下' : '上';
             turnLog.directions.push({ dir: dirName, maxDist });

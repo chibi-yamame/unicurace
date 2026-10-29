@@ -159,8 +159,8 @@
 
     <script type="module">
         import { SeededRandom } from './src/utils/random.js';
-        import { findSolutionPath } from './src/core/solver.js';
         import { generateStageViaSimulationWithRetry } from './src/core/generator.js';
+        import { createFilled, slidePath, canMove, isCleared } from './src/core/rules.js';
         import { renderGame } from './src/view/renderer.js';
 
         // --- 定数定義 ---
@@ -226,13 +226,10 @@
             const rng = new SeededRandom(state.currentSeed);
 
             for (let i = 0; i < CONFIG.stageTotal; i++) {
-                let stageData = null;
-                let solvable = false;
-
-                stageData = generateStageViaSimulationWithRetry(
+                // クリア可能性は生成アルゴリズムが保証する（docs/algorithm-poc3.md）
+                const stageData = generateStageViaSimulationWithRetry(
                     rng, CONFIG.gridSize, CONFIG.gridSize - 1, CONFIG.blockRatioMin, CONFIG.blockRatioMax
                 );
-
 
                 state.stages.push(stageData);
                 progress.textContent = `${i + 1} / ${CONFIG.stageTotal} 完了`;
@@ -300,8 +297,7 @@
             
             // プレイ用データの初期化
             state.playerPos = { x: stageData.startPos[0], y: stageData.startPos[1] };
-            state.currentPainted = stageData.grid.map(row => row.map(cell => cell === 1)); // ブロックは塗り済み扱い
-            state.currentPainted[stageData.startPos[1]][stageData.startPos[0]] = true; // スタート地点を塗る
+            state.currentPainted = createFilled(stageData.grid, stageData.startPos); // ブロックは塗り済み扱い
 
             updateDisplay();
         }
@@ -343,25 +339,11 @@
 
         // --- 移動実行 & アニメーション ---
         function executeMove(dx, dy) {
-            const stageData = state.stages[state.currentStageIdx];
-            const N = CONFIG.gridSize;
-            
-            let targetX = Math.round(state.playerPos.x);
-            let targetY = Math.round(state.playerPos.y);
-            let moveDistance = 0;
-
             // どこまで滑れるか計算
-            while (true) {
-                const nextX = targetX + dx;
-                const nextY = targetY + dy;
-                if (nextX < 0 || nextX >= N || nextY < 0 || nextY >= N) break;
-                if (stageData.grid[nextY][nextX] === 1 || state.currentPainted[nextY][nextX]) break;
-                targetX = nextX;
-                targetY = nextY;
-                moveDistance++;
-            }
-
+            const path = slidePath(state.currentPainted, state.playerPos.x, state.playerPos.y, dx, dy);
+            const moveDistance = path.length;
             if (moveDistance === 0) return;
+            const [targetX, targetY] = path[moveDistance - 1];
 
             state.isMoving = true;
             const startX = state.playerPos.x;
@@ -401,12 +383,7 @@
         }
 
         function checkClear() {
-            const stageData = state.stages[state.currentStageIdx];
-            const isAllPainted = state.currentPainted.every((row, y) => 
-                row.every((cell, x) => stageData.grid[y][x] === 1 || cell)
-            );
-
-            if (isAllPainted) {
+            if (isCleared(state.currentPainted)) {
                 setTimeout(() => {
                     state.currentStageIdx++;
                     loadStage(state.currentStageIdx);
@@ -415,28 +392,10 @@
         }
 
         function checkDeadlock() {
-            const stageData = state.stages[state.currentStageIdx];
-            const N = CONFIG.gridSize;
-            const dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
-            
-            const canMove = dirs.some(([dx, dy]) => {
-                const nx = state.playerPos.x + dx;
-                const ny = state.playerPos.y + dy;
-                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return false;
-                if (stageData.grid[ny][nx] === 1 || state.currentPainted[ny][nx]) return false;
-                return true;
-            });
-
-            if (!canMove) {
-                // 全てのマスが埋まっているか確認（クリアならデッドロックではない）
-                const isAllPainted = state.currentPainted.every((row, y) => 
-                    row.every((cell, x) => stageData.grid[y][x] === 1 || cell)
-                );
-                
-                if (!isAllPainted) {
-                    state.deadlockCount++;
-                    resetCurrentStage(true);
-                }
+            // どこにも動けず、かつ未クリアなら詰み
+            if (!canMove(state.currentPainted, state.playerPos.x, state.playerPos.y) && !isCleared(state.currentPainted)) {
+                state.deadlockCount++;
+                resetCurrentStage(true);
             }
         }
 
