@@ -11,7 +11,7 @@
 
 - **シングルプレイ（タイムアタック）**: 7x7 のステージを 5 つ連続でクリアし、総タイム（経過時間＋ペナルティ）を競うモード。詳細は [`docs/single-player-spec.md`](docs/single-player-spec.md)。
 - **シード共有**: タイトル画面で最大6桁のシード値を入力・ランダム生成でき、同じシードを入力すれば友人と同じ 5 ステージで対戦できる。
-- **スワイプ / マウスドラッグ操作**: キャンバス上でのスワイプ（30px 以上）で上下左右に移動。移動はアニメーション付きで、通過したマスをリアルタイムに塗る。
+- **スワイプ / マウスドラッグ / 矢印キー操作**: キャンバス上でのスワイプ（30px 以上）または矢印キーで上下左右に移動。移動はアニメーション付きで、通過したマスをリアルタイムに塗る。高解像度画面ではその解像度で描画する。
 - **詰み判定・自動リセット**: どの方向にも動けなくなったら自動でステージ最初に戻り、ペナルティ（3秒）を加算。
 - **確定的なステージ生成**: シード値ベースの乱数生成（LCG）により、同じシードからは常に同じステージを生成。
 - **シミュレーションアルゴリズム**: 実際に解く動きをシミュレートしながらブロックを配置するため、生成されたステージは必ずクリア可能。
@@ -22,25 +22,35 @@
 
 - **言語**: JavaScript (ES6+ / ES Modules)。ビルド工程・外部依存なし。
 - **描画**: HTML5 Canvas API
-- **UI**: HTML / CSS（`index.html` 内に記述）
+- **UI**: HTML / CSS（`index.html`）。画面制御は `src/ui/app.js`
 
 ## プロジェクト構造
 
 ```
 .
-├── index.html                  # ゲーム本体（シングルプレイ）。画面遷移・入力・タイマー等のロジックを内包
+├── index.html                  # ゲーム本体（シングルプレイ）の HTML / CSS。スクリプトは src/ui/app.js
 ├── package.json                # npm スクリプト（テスト・ローカルサーバー）。外部依存なし
 ├── src/
+│   ├── config.js               # シングルプレイの設定値 (CONFIG)
 │   ├── core/
 │   │   ├── rules.js            # ゲームルール（滑る移動・詰み判定・クリア判定）。生成・ソルバー・ゲームで共通
 │   │   ├── generator.js        # ステージ生成エンジン
 │   │   └── solver.js           # 解法を探索するDFSソルバー
+│   ├── game/                   # ゲーム進行（DOM 非依存）
+│   │   ├── stages.js           # シードと設定から 1 ゲーム分のステージを生成
+│   │   ├── session.js          # ステージ進行・移動・詰み/クリア判定・ペナルティ・統計
+│   │   └── timer.js            # 経過時間の計測 (Stopwatch)
+│   ├── ui/                     # 画面（DOM）
+│   │   ├── app.js              # 画面制御の入口。各モジュールをつなぐ
+│   │   ├── screens.js          # 画面遷移と、画面を離れるときの後始末
+│   │   └── input.js            # スワイプ・マウス・矢印キーを移動方向に変換
 │   ├── utils/
 │   │   ├── random.js           # シード付き乱数生成器 (LCG)
 │   │   └── time.js             # タイム表示の整形
 │   └── view/
-│       └── renderer.js         # Canvas へのゲーム盤面描画
-├── test/                       # node:test によるコアロジックのテスト
+│       ├── renderer.js         # Canvas へのゲーム盤面描画（高解像度対応）
+│       └── animator.js         # 移動アニメーション（見た目のみ）
+├── test/                       # node:test によるテスト（core / game / utils）
 ├── tools/
 │   └── stage-inspector/
 │       └── test_generator.html # ステージ生成・解法の検証用ブラウザツール
@@ -64,7 +74,11 @@
 | | `generateStageViaSimulationWithRetry(rng, N, moveRangeMax, blockRatioMin = 0.2, blockRatioMax = 0.5, maxRetries = N * 10)` | ブロック率が範囲内になるまで再生成。範囲外のままなら範囲に最も近い結果を返す。返り値に `retryCount` が付く。 |
 | | `shuffleDirections(directions, rng)` / `getWallConstrainedDirections(x, y, N)` | 生成用の補助関数。 |
 | `src/core/solver.js` | `findSolutionPath(N, grid, startPos)` | 解があれば手順（`{ endX, endY, path, dx, dy }` の配列）、なければ `null`。 |
-| `src/view/renderer.js` | `renderGame(canvas, stageData, playerPos, currentPainted, CONFIG)` | 盤面・塗りつぶし・ストーンを描画。キャンバスは `min(画面幅 * 0.9, CONFIG.canvasSize)` に自動リサイズ。 |
+| `src/game/stages.js` | `stageIterator(seed, config)` / `generateStages(seed, config)` | 同じシードと設定からは常に同じステージ列を返す。 |
+| `src/game/session.js` | `class GameSession(stages, { penaltyTime })` | `startMove(dx, dy)` → `finishMove()`（`'continue'` / `'cleared'` / `'deadlock'`）、`reset()`、`advance()`、`skip()`。状態は `phase`、`filled`、`playerPos`、`penaltyMs`、`deadlockCount`、`manualResetCount`。塗りは `finishMove()` で確定する。 |
+| `src/game/timer.js` | `class Stopwatch` | `start(now)` / `stop(now)` / `elapsed(now)`。時刻は呼び出し側が渡す。 |
+| `src/view/renderer.js` | `renderGame(canvas, { grid, filled, extraPainted, playerPos }, { canvasSize })` | 盤面・塗りつぶし・ストーンを描画。表示サイズは `min(画面幅 * 0.9, canvasSize)`、解像度はその `devicePixelRatio` 倍。`extraPainted` は移動中に通過したマス。 |
+| `src/view/animator.js` | `animateMove(move, { secondsPerCell, onFrame, onDone })` | 移動アニメーション。中断用の関数を返す。 |
 
 ## 始め方
 
@@ -88,7 +102,7 @@ npm test
   2. 「ステージ生成」をクリック。
   3. 各ステージの盤面（スタート位置・ソルバーの解法経路）、手数、ブロック率、リトライ回数（`R*`）が表示される。「ログを表示」で生成時のターンログ（`T<ターン>: (x,y) -> 方向(距離) +B [END]`）を確認できる。
 
-## ゲーム設定値（`index.html` の `CONFIG`）
+## ゲーム設定値（`src/config.js` の `CONFIG`）
 
 | キー | 値 | 意味 |
 | --- | --- | --- |
@@ -99,8 +113,9 @@ npm test
 | `canvasSize` | 400 | キャンバスの最大サイズ (px) |
 | `swipeThreshold` | 30 | スワイプと判定する最小移動量 (px) |
 | `penaltyTime` | 3000 | リセット時のペナルティ (ms) |
-
-ステージ生成時の `moveRangeMax` は `gridSize - 1`（= 6）を渡しています。
+| `moveRangeMax` | `gridSize - 1`（= 6） | 生成時に 1 手で進む距離を選ぶ上限 |
+| `clearDelay` | 200 | クリア後、次のステージへ進むまでの余韻 (ms) |
+| `generationDelay` | 100 | 生成画面の演出用待ち時間（1 ステージあたり、ms） |
 
 ## アルゴリズムのポイント
 

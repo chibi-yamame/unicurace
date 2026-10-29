@@ -1,22 +1,32 @@
 /**
  * ゲームの描画を担当するレンダラー
+ *
+ * view: { grid, filled, extraPainted, playerPos }
+ * - filled:       確定済みの塗りつぶし状態（ブロックも true）
+ * - extraPainted: 移動中に石が通過したマス [[x, y], ...]（未確定分の表示用）
+ * - playerPos:    石の位置（移動中は小数）
  */
-export function renderGame(canvas, stageData, playerPos, currentPainted, CONFIG) {
-    const N = stageData.grid.length;
-    // 画面サイズに合わせてキャンバスをリサイズ。canvas.width は整数に丸められるため、
-    // 小数のまま比較すると毎フレーム再確保が走る
-    const size = Math.floor(Math.min(window.innerWidth * 0.9, CONFIG.canvasSize));
-    if (canvas.width !== size) {
-        canvas.width = canvas.height = size;
+export function renderGame(canvas, view, { canvasSize }) {
+    const { grid, filled, extraPainted = [], playerPos } = view;
+    const N = grid.length;
+
+    // 画面幅に合わせた表示サイズ（CSS ピクセル）。高解像度画面ではその倍率分の解像度で描く
+    const cssSize = Math.floor(Math.min(window.innerWidth * 0.9, canvasSize));
+    const dpr = window.devicePixelRatio || 1;
+    const pixelSize = Math.round(cssSize * dpr);
+    if (canvas.width !== pixelSize) {
+        canvas.width = canvas.height = pixelSize;
+        canvas.style.width = canvas.style.height = `${cssSize}px`;
     }
 
     const ctx = canvas.getContext('2d');
-    const cellSize = canvas.width / N;
+    ctx.setTransform(pixelSize / cssSize, 0, 0, pixelSize / cssSize, 0, 0);
+    const cellSize = cssSize / N;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, cssSize, cssSize);
 
     // 1. グリッドとブロック（壁）の描画
-    stageData.grid.forEach((row, y) => {
+    grid.forEach((row, y) => {
         row.forEach((cell, x) => {
             ctx.fillStyle = cell === 1 ? '#444' : '#fff'; // 1はブロック（壁）
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
@@ -26,17 +36,16 @@ export function renderGame(canvas, stageData, playerPos, currentPainted, CONFIG)
     });
 
     // 2. 塗りつぶし済みのマスを描画
-    if (currentPainted) {
-        currentPainted.forEach((row, y) => {
-            row.forEach((isPainted, x) => {
-                // 空きマスで、かつ塗られている場合
-                if (isPainted && stageData.grid[y][x] !== 1) {
-                    ctx.fillStyle = '#b3d9ff'; // 塗りつぶしの色を少し濃くして視認性アップ
-                    ctx.fillRect(x * cellSize + 2, y * cellSize + 2, cellSize - 4, cellSize - 4);
-                }
-            });
+    const paintCell = (x, y) => {
+        ctx.fillStyle = '#b3d9ff';
+        ctx.fillRect(x * cellSize + 2, y * cellSize + 2, cellSize - 4, cellSize - 4);
+    };
+    filled.forEach((row, y) => {
+        row.forEach((isFilled, x) => {
+            if (isFilled && grid[y][x] !== 1) paintCell(x, y);
         });
-    }
+    });
+    for (const [x, y] of extraPainted) paintCell(x, y);
 
     // 3. ストーン（プレイヤー）の描画
     ctx.fillStyle = '#ff4757';

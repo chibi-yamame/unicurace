@@ -13,8 +13,9 @@
 | D4 ソルバー | 対応済み（共通ルール使用、カウンタ化、深さ上限削除） |
 | D6 開発基盤 | テストと `package.json` を追加済み。lint・formatter は未導入 |
 | D3 生成器 | 一部対応（`choosenDist` の typo、不要な範囲チェック） |
-| D5 設定値 | 一部対応（未使用コード削除、タイマー整形を `formatTime` に統一、レンダラーの盤面サイズ） |
-| D2, D7 | 未対応 |
+| D5 設定値 | 対応済み（`src/config.js` に集約、未使用コード削除、タイマー整形を `formatTime` に統一、レンダラーの盤面サイズ） |
+| D2 `index.html` の分割 | 対応済み（`src/game/`・`src/ui/`・`src/view/animator.js`。ゲーム進行は `GameSession` としてテスト可能） |
+| D7 表示・UX | 対応済み（高解像度対応、`100dvh`、矢印キー操作） |
 
 ## 1. 不具合
 
