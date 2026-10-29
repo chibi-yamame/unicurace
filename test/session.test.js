@@ -83,3 +83,12 @@ test('skip は移動中でも次のステージへ進む', () => {
     s.skip();
     assert.equal(s.phase, PHASE.FINISHED);
 });
+
+test('progress: 塗ったマス数と塗るべきマス数（スタート地点を含む）', () => {
+    const s = create(clearable);
+    assert.deepEqual(s.progress, { painted: 1, total: 4 });
+    s.startMove(1, 0);
+    assert.deepEqual(s.progress, { painted: 1, total: 4 }, '移動中は確定前');
+    s.finishMove();
+    assert.deepEqual(s.progress, { painted: 3, total: 4 });
+});

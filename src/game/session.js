@@ -52,6 +52,18 @@ export class GameSession {
         return this.stageIndex === this.stageTotal - 1;
     }
 
+    /** 塗りの進み具合 { painted, total }（スタート地点を含む。ブロックは数えない） */
+    get progress() {
+        const { grid } = this.stage;
+        let painted = 0, total = 0;
+        grid.forEach((row, y) => row.forEach((cell, x) => {
+            if (cell === 1) return;
+            total++;
+            if (this.filled[y][x]) painted++;
+        }));
+        return { painted, total };
+    }
+
     /**
      * 移動を開始する。動けない・操作を受け付けない状態なら null。
      * 塗りつぶしは finishMove() で確定する（アニメーションの途中経過に依存させない）。

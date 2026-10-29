@@ -2,73 +2,152 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unicurace - Single Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Unicurace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Dela+Gothic+One&family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
     <style>
+        /* 夜のレース: 藍の地に、琥珀（石・タイマー）と水色（塗り跡）の 2 色 */
         :root {
-            --primary-color: #007bff;
-            --bg-color: #f8f9fa;
-            --text-color: #333;
+            --bg: #15123A;          /* 地 */
+            --panel: #0C0A26;       /* パネル・盤面 */
+            --line: #4B4690;        /* 枠線 */
+            --line-soft: #2E2A6E;
+            --track: #26235F;       /* 未塗りマス・ゲージの地 */
+            --text: #E9E7FF;
+            --text-strong: #FFFFFF;
+            --text-muted: #B9B5E8;
+            --text-faint: #7C77C4;
+            --amber: #FFB627;       /* 石・タイマー・主ボタン */
+            --amber-glow: rgba(255, 182, 39, 0.45);
+            --cyan: #35C6DA;        /* 塗り跡 */
+            --cyan-soft: #9FE6F0;
+            --danger: #FF6B6B;      /* ペナルティ */
+            --danger-bg: #3A1430;
+
+            --font-body: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+            --font-logo: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+            --font-display: 'Dela Gothic One', 'Hiragino Sans', sans-serif;
+            --font-led: 'DotGothic16', ui-monospace, monospace;
+            color-scheme: dark;
         }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
         body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
             margin: 0;
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text);
             overflow: hidden; /* スクロール禁止 */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            height: 100dvh; /* スマホのアドレスバーの表示・非表示に追従 */
+            -webkit-tap-highlight-color: transparent;
         }
         section {
             display: none;
             flex-direction: column;
-            align-items: center;
-            text-align: center;
             width: 100%;
-            max-width: 500px;
-            padding: 20px;
+            max-width: 440px;
+            height: 100%;
+            margin: 0 auto;
+            padding-top: max(32px, env(safe-area-inset-top, 0px));
+            padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+            padding-left: max(24px, env(safe-area-inset-left, 0px));
+            padding-right: max(24px, env(safe-area-inset-right, 0px));
         }
         section.active { display: flex; }
+        .spacer { flex: 1 1 0; min-height: 0; }
 
-        h1 { font-size: 2rem; margin-bottom: 1rem; color: var(--primary-color); }
-        
-        /* シード入力関連 */
-        .seed-container { margin: 20px 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        .seed-input-group { display: flex; gap: 5px; }
-        #title-seed-input { padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 120px; text-align: center; font-size: 1.1rem; }
-        .btn-small { padding: 8px 15px; font-size: 0.9rem; background-color: #6c757d; border-radius: 8px; }
-        .seed-label { font-size: 0.9rem; color: #666; }
-        #display-seed { font-weight: bold; color: var(--primary-color); margin-top: 5px; }
-
-        .btn {
-            padding: 15px 20px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            background-color: var(--primary-color);
-            color: white;
+        button { font-family: var(--font-body); cursor: pointer; }
+        button:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+        .btn-primary {
+            height: 60px;
             border: none;
-            border-radius: 50px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.2s, background-color 0.2s;
+            border-radius: 30px;
+            background: var(--amber);
+            color: var(--bg);
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            transition: transform 0.15s;
         }
-        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
-        .btn:active { transform: scale(0.95); }
+        .btn-primary:disabled { background: var(--track); color: var(--text-faint); cursor: not-allowed; }
+        .btn-primary:active:not(:disabled) { transform: scale(0.97); }
+        .btn-outline {
+            border: 1.5px solid var(--line);
+            background: transparent;
+            color: var(--text);
+            font-weight: 700;
+        }
 
-        /* カウントダウン */
-        #countdown-text { font-size: 8rem; font-weight: bold; color: var(--primary-color); }
+        /* 1. タイトル */
+        #screen-title { gap: 40px; padding-top: max(80px, env(safe-area-inset-top, 0px)); }
+        .title-head { display: flex; flex-direction: column; gap: 6px; }
+        .eyebrow { font: 600 14px var(--font-logo); letter-spacing: 0.24em; color: var(--amber); }
+        .logo { margin: 0; font: 700 76px/0.9 var(--font-logo); letter-spacing: -0.01em; color: var(--text-strong); }
+        .tagline { font-size: 15px; color: var(--text-muted); }
+        .title-strip { display: flex; gap: 4px; }
+        .title-strip span { width: 40px; height: 40px; border-radius: 6px; flex-shrink: 1; }
+        .title-strip .paint { background: var(--cyan); box-shadow: 0 0 10px rgba(53, 198, 218, 0.35); }
+        .title-strip .empty { background: var(--track); }
+        .title-strip .block { background: var(--panel); box-shadow: inset 0 0 0 1.5px #3A3580; }
+        .title-strip .stone { display: flex; align-items: center; justify-content: center; }
+        .title-strip .stone::after {
+            content: ""; width: 26px; height: 26px; border-radius: 50%;
+            background: var(--amber); box-shadow: 0 0 0 4px rgba(255, 182, 39, 0.25), 0 0 16px rgba(255, 182, 39, 0.7);
+        }
+        .seed-field { display: flex; flex-direction: column; gap: 10px; }
+        .seed-field label { font-size: 13px; font-weight: 700; color: var(--text-strong); }
+        .seed-field label span { font-weight: 400; color: var(--text-muted); }
+        .seed-row { display: flex; gap: 8px; }
+        #title-seed-input {
+            flex: 1 1 auto; min-width: 0; height: 56px;
+            border: 1.5px solid var(--line); border-radius: 12px;
+            background: var(--panel); color: var(--amber);
+            padding: 0 16px;
+            font: 700 30px var(--font-logo); letter-spacing: 0.3em; font-variant-numeric: tabular-nums;
+        }
+        #title-seed-input::placeholder { color: var(--text-faint); font-size: 16px; letter-spacing: 0.04em; font-family: var(--font-body); font-weight: 500; }
+        #btn-random-seed { height: 56px; padding: 0 18px; border-radius: 12px; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
 
-        /* ゲーム画面 */
-        .game-header { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
-        .main-stats { width: 100%; display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 5px; }
-        #game-canvas { background: white; border: 4px solid #333; box-shadow: 0 10px 20px rgba(0,0,0,0.1); max-width: 90vw; max-height: 90vw; }
-        #penalty-timer { color: #ff4757; font-size: 0.9rem; font-weight: bold; min-height: 1.2em; }
-        
-        .system-controls { width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .game-controls { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 20px; }
-        .btn-system { padding: 8px 15px; font-size: 0.8rem; border-radius: 8px; background-color: #6c757d; color: white; border: none; cursor: pointer; }
+        /* 2. ステージ生成 */
+        #screen-generation { gap: 16px; justify-content: center; text-align: center; }
+        #gen-status-title { margin: 0; font: 400 24px var(--font-display); color: var(--text-strong); }
+        #gen-progress { margin: 0; color: var(--text-muted); }
+        #display-seed { margin: 8px 0 24px; font: 400 26px var(--font-led); color: var(--amber); letter-spacing: 0.12em; text-shadow: 0 0 10px var(--amber-glow); }
+
+        /* 3. カウントダウン */
+        #screen-countdown { justify-content: center; align-items: center; }
+        #countdown-text { font: 400 120px/1 var(--font-display); color: var(--amber); text-shadow: 0 0 24px var(--amber-glow); }
+
+        /* 4. ゲーム */
+        #screen-game { gap: 18px; padding-top: max(24px, env(safe-area-inset-top, 0px)); padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); position: relative; }
+        .game-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .game-top-left { display: flex; gap: 8px; }
+        .btn-system { height: 44px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-muted); }
+        #btn-skip-stage { padding: 0 10px; font-size: 12px; color: var(--text-faint); border-color: var(--line-soft); }
+        .lap { display: flex; align-items: baseline; gap: 6px; }
+        .lap-label { font: 400 14px var(--font-display); color: var(--text-muted); letter-spacing: 0.08em; }
+        #stage-number { font: 400 30px/1 var(--font-display); color: var(--text-strong); }
+        #stage-total { font: 400 16px var(--font-display); color: var(--text-faint); }
+        .timer-panel {
+            background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px;
+            padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .timer-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        #game-timer { font: 400 50px/1 var(--font-led); color: var(--amber); font-variant-numeric: tabular-nums; text-shadow: 0 0 12px var(--amber-glow); }
+        #penalty-timer { font-size: 13px; font-weight: 700; color: var(--danger); background: var(--danger-bg); padding: 6px 10px; border-radius: 6px; white-space: nowrap; }
+        .progress-row { display: flex; align-items: center; gap: 10px; }
+        .progress-track { flex: 1 1 auto; height: 6px; background: #2A2763; border-radius: 3px; overflow: hidden; }
+        #progress-bar { height: 100%; width: 0; background: var(--cyan); border-radius: 3px; transition: width 0.12s; }
+        #progress-text { font: 400 13px var(--font-led); color: var(--cyan-soft); font-variant-numeric: tabular-nums; }
+        .board-area { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+        #game-canvas { display: block; border-radius: 14px; background: var(--panel); box-shadow: 0 0 0 1px var(--line-soft); touch-action: none; }
+        #btn-reset-stage {
+            height: 56px; border: none; border-radius: 12px;
+            background: var(--line-soft); color: var(--text-strong);
+            font: 400 18px var(--font-display); letter-spacing: 0.12em;
+        }
+        #btn-reset-stage small { font: 500 13px var(--font-body); color: #FF8C8C; letter-spacing: 0; }
 
         /* ペナルティポップアップ演出 */
         .penalty-popup {
@@ -76,9 +155,9 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: #ff4757;
-            font-size: 2.5rem;
-            font-weight: bold;
+            color: var(--danger);
+            font: 400 44px var(--font-display);
+            text-shadow: 0 0 16px rgba(255, 107, 107, 0.5);
             pointer-events: none;
             z-index: 1000;
             animation: penaltyFloat 1.0s ease-out forwards;
@@ -88,30 +167,47 @@
             100% { transform: translate(-50%, -150%); opacity: 0; }
         }
 
-        /* 結果画面 */
-        #screen-result h2 { font-size: 2.5rem; margin-bottom: 30px; color: var(--primary-color); }
-        .result-time { font-size: 3rem; font-weight: bold; color: var(--primary-color); margin: 20px 0; font-family: 'Courier New', monospace; }
-        .result-stats { font-size: 1rem; margin: 20px 0; color: #666; }
-        .result-buttons { display: flex; gap: 15px; margin-top: 30px; width: 100%; justify-content: center; }
-        .result-buttons .btn { flex: 1; max-width: 200px; }
+        /* 5. 結果 */
+        #screen-result { gap: 12px; justify-content: center; text-align: center; }
+        #screen-result h2 { margin: 0; font: 400 36px var(--font-display); color: var(--text-strong); }
+        .result-label { margin: 16px 0 0; font: 600 14px var(--font-logo); letter-spacing: 0.24em; color: var(--text-muted); }
+        .result-time { font: 400 56px/1.1 var(--font-led); color: var(--amber); font-variant-numeric: tabular-nums; text-shadow: 0 0 14px var(--amber-glow); }
+        .result-stats { font-size: 14px; line-height: 1.8; color: var(--text-muted); margin: 8px 0 24px; }
+        .result-buttons { display: flex; gap: 12px; }
+        .result-buttons button { flex: 1 1 0; }
+        #btn-to-title { height: 60px; border-radius: 30px; font-size: 16px; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .penalty-popup { animation-duration: 0.01s; }
+            #progress-bar, .btn-primary { transition: none; }
+        }
     </style>
 </head>
 <body>
 
     <!-- 1. タイトル画面 -->
     <section id="screen-title" class="active">
-        <h1>Unicurace</h1>
-        <p>一筆書き塗りつぶしパズル</p>
-        
-        <div class="seed-container">
-            <span class="seed-label">シード共有 (最大6桁)</span>
-            <div class="seed-input-group">
-                <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" id="title-seed-input" placeholder="任意">
-                <button class="btn btn-small" id="btn-random-seed">ランダム</button>
+        <div class="title-head">
+            <span class="eyebrow">ONE-STROKE SLIDE PUZZLE</span>
+            <h1 class="logo">UNICURACE</h1>
+            <span class="tagline">ユニキュレイス ― 一筆書き塗りつぶしパズル</span>
+        </div>
+
+        <div class="title-strip" aria-hidden="true">
+            <span class="paint"></span><span class="paint"></span><span class="paint"></span><span class="paint stone"></span><span class="empty"></span><span class="empty"></span><span class="block"></span>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="seed-field">
+            <label for="title-seed-input">シード <span>同じ番号なら友だちと同じ 5 ステージ</span></label>
+            <div class="seed-row">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" id="title-seed-input" placeholder="空欄でおまかせ">
+                <button type="button" class="btn-outline" id="btn-random-seed">ランダム</button>
             </div>
         </div>
 
-        <button class="btn" id="btn-to-gen">ゲーム開始</button>
+        <button type="button" class="btn-primary" id="btn-to-gen">ゲーム開始</button>
     </section>
 
     <!-- 2. ステージ生成画面 -->
@@ -119,7 +215,7 @@
         <h2 id="gen-status-title">ステージ構築中...</h2>
         <p id="gen-progress">0 / 5 完了</p>
         <p id="display-seed">シード: -</p>
-        <button class="btn" id="btn-to-countdown" disabled>開始</button>
+        <button type="button" class="btn-primary" id="btn-to-countdown" disabled>スタート</button>
     </section>
 
     <!-- 3. 開始カウントダウン画面 -->
@@ -129,32 +225,45 @@
 
     <!-- 4. ゲーム画面 -->
     <section id="screen-game">
-        <div class="system-controls">
-            <button class="btn-system" style="background-color: #6c757d;" id="btn-giveup">ギブアップ</button>
-            <button class="btn-system" id="btn-skip-stage">Next(Debug)</button>
-        </div>
-        <div class="game-header">
-            <div class="main-stats">
-                <div id="stage-number">STAGE 1 / 5</div>
-                <div id="game-timer">00:00.00</div>
+        <div class="game-top">
+            <div class="game-top-left">
+                <button type="button" class="btn-system btn-outline" id="btn-giveup">ギブアップ</button>
+                <button type="button" class="btn-system btn-outline" id="btn-skip-stage">Next(Debug)</button>
             </div>
-            <div id="penalty-timer"></div>
+            <div class="lap" aria-label="ステージ">
+                <span class="lap-label">LAP</span>
+                <span id="stage-number">1</span>
+                <span id="stage-total">/ 5</span>
+            </div>
         </div>
-        <canvas id="game-canvas"></canvas>
-        <div class="game-controls">
-            <button class="btn" style="font-size: 1.2rem; padding: 15px 60px; background-color: #dc3545;" id="btn-reset-stage">リセット</button>
+
+        <div class="timer-panel">
+            <div class="timer-row">
+                <div id="game-timer">00:00.00</div>
+                <div id="penalty-timer" hidden></div>
+            </div>
+            <div class="progress-row">
+                <div class="progress-track"><div id="progress-bar"></div></div>
+                <span id="progress-text">0/0</span>
+            </div>
         </div>
+
+        <div class="board-area">
+            <canvas id="game-canvas"></canvas>
+        </div>
+
+        <button type="button" id="btn-reset-stage">リセット <small>+3秒</small></button>
     </section>
 
     <!-- 5. 結果画面 -->
     <section id="screen-result">
-        <h2>全ステージクリア！</h2>
-        <p style="font-size: 1.1rem; margin-bottom: 10px;">タイム</p>
+        <h2>FINISH!</h2>
+        <p class="result-label">TOTAL TIME</p>
         <div class="result-time" id="result-time">00:00.00</div>
         <div class="result-stats" id="result-stats"></div>
         <div class="result-buttons">
-            <button class="btn" id="btn-restart">もう一度</button>
-            <button class="btn" id="btn-to-title">タイトルへ</button>
+            <button type="button" class="btn-primary" id="btn-restart">もう一度</button>
+            <button type="button" class="btn-outline" id="btn-to-title">タイトルへ</button>
         </div>
     </section>
 

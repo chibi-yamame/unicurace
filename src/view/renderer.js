@@ -5,13 +5,28 @@
  * - filled:       確定済みの塗りつぶし状態（ブロックも true）
  * - extraPainted: 移動中に石が通過したマス [[x, y], ...]（未確定分の表示用）
  * - playerPos:    石の位置（移動中は小数）
+ * size: 表示サイズ（CSS ピクセル）。高解像度画面ではその devicePixelRatio 倍の解像度で描く
  */
-export function renderGame(canvas, view, { canvasSize }) {
+const THEME = {
+    board: '#0C0A26',
+    empty: '#26235F',
+    blockEdge: '#3A3580',
+    paint: '#35C6DA',
+    paintGlow: 'rgba(53, 198, 218, 0.35)',
+    stone: '#FFB627',
+    stoneRing: 'rgba(255, 182, 39, 0.25)',
+    stoneGlow: 'rgba(255, 182, 39, 0.7)',
+};
+
+const PADDING = 5; // 盤面の外周余白
+const GAP = 4;     // マスの間隔
+const RADIUS = 6;  // マスの角丸
+
+export function renderGame(canvas, view, size) {
     const { grid, filled, extraPainted = [], playerPos } = view;
     const N = grid.length;
 
-    // 画面幅に合わせた表示サイズ（CSS ピクセル）。高解像度画面ではその倍率分の解像度で描く
-    const cssSize = Math.floor(Math.min(window.innerWidth * 0.9, canvasSize));
+    const cssSize = Math.floor(size);
     const dpr = window.devicePixelRatio || 1;
     const pixelSize = Math.round(cssSize * dpr);
     if (canvas.width !== pixelSize) {
@@ -21,46 +36,65 @@ export function renderGame(canvas, view, { canvasSize }) {
 
     const ctx = canvas.getContext('2d');
     ctx.setTransform(pixelSize / cssSize, 0, 0, pixelSize / cssSize, 0, 0);
-    const cellSize = cssSize / N;
-
     ctx.clearRect(0, 0, cssSize, cssSize);
 
-    // 1. グリッドとブロック（壁）の描画
-    grid.forEach((row, y) => {
-        row.forEach((cell, x) => {
-            ctx.fillStyle = cell === 1 ? '#444' : '#fff'; // 1はブロック（壁）
-            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-            ctx.strokeStyle = '#ddd';
-            ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
-        });
-    });
+    const cellSize = (cssSize - PADDING * 2 - GAP * (N - 1)) / N;
+    const step = cellSize + GAP;
+    const cellRect = (x, y) => [PADDING + x * step, PADDING + y * step, cellSize, cellSize];
 
-    // 2. 塗りつぶし済みのマスを描画
-    const paintCell = (x, y) => {
-        ctx.fillStyle = '#b3d9ff';
-        ctx.fillRect(x * cellSize + 2, y * cellSize + 2, cellSize - 4, cellSize - 4);
-    };
-    filled.forEach((row, y) => {
-        row.forEach((isFilled, x) => {
-            if (isFilled && grid[y][x] !== 1) paintCell(x, y);
-        });
-    });
-    for (const [x, y] of extraPainted) paintCell(x, y);
+    // 1. 盤面とマス
+    ctx.fillStyle = THEME.board;
+    ctx.fillRect(0, 0, cssSize, cssSize);
 
-    // 3. ストーン（プレイヤー）の描画
-    ctx.fillStyle = '#ff4757';
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = 'rgba(0,0,0,0.2)';
+    const painted = new Set(extraPainted.map(([x, y]) => `${x},${y}`));
+    for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+            const [rx, ry, w, h] = cellRect(x, y);
+            if (grid[y][x] === 1) {
+                // ブロック: 盤面と同じ色の窪みに縁取り
+                ctx.strokeStyle = THEME.blockEdge;
+                ctx.lineWidth = 1.5;
+                roundRect(ctx, rx + 0.75, ry + 0.75, w - 1.5, h - 1.5, RADIUS);
+                ctx.stroke();
+            } else if (filled[y][x] || painted.has(`${x},${y}`)) {
+                ctx.save();
+                ctx.shadowColor = THEME.paintGlow;
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = THEME.paint;
+                roundRect(ctx, rx, ry, w, h, RADIUS);
+                ctx.fill();
+                ctx.restore();
+            } else {
+                ctx.fillStyle = THEME.empty;
+                roundRect(ctx, rx, ry, w, h, RADIUS);
+                ctx.fill();
+            }
+        }
+    }
+
+    // 2. 石（光る琥珀の玉）
+    const centerX = PADDING + playerPos.x * step + cellSize / 2;
+    const centerY = PADDING + playerPos.y * step + cellSize / 2;
+    const r = cellSize * 0.33;
+    ctx.fillStyle = THEME.stoneRing;
     ctx.beginPath();
-    const centerX = (playerPos.x + 0.5) * cellSize;
-    const centerY = (playerPos.y + 0.5) * cellSize;
-    ctx.arc(centerX, centerY, cellSize * 0.35, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, r + 4, 0, Math.PI * 2);
     ctx.fill();
-    
-    // 影のリセット
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.save();
+    ctx.shadowColor = THEME.stoneGlow;
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = THEME.stone;
     ctx.beginPath();
-    ctx.arc(centerX - cellSize * 0.1, centerY - cellSize * 0.1, cellSize * 0.08, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) {
+        ctx.roundRect(x, y, w, h, r);
+    } else {
+        ctx.rect(x, y, w, h);
+    }
 }

@@ -92,6 +92,7 @@ onLeave('screen-countdown', () => {
 
 // --- 4. ゲーム画面 ---
 const canvas = $('game-canvas');
+$('btn-reset-stage').querySelector('small').textContent = `+${CONFIG.penaltyTime / 1000}秒`;
 
 function startGame() {
     session = new GameSession(stages, { penaltyTime: CONFIG.penaltyTime });
@@ -122,7 +123,9 @@ function totalTime() {
 
 function renderTimer() {
     $('game-timer').textContent = formatTime(totalTime());
-    $('penalty-timer').textContent = session.penaltyMs > 0 ? `+${(session.penaltyMs / 1000).toFixed(2)}s Penalty` : '';
+    const penalty = $('penalty-timer');
+    penalty.hidden = session.penaltyMs === 0;
+    penalty.textContent = `+${(session.penaltyMs / 1000).toFixed(2)}s`;
 }
 
 function timerLoop() {
@@ -130,8 +133,18 @@ function timerLoop() {
     timerFrameId = requestAnimationFrame(timerLoop);
 }
 
+// 盤面は、ゲーム画面で残った領域に収まる正方形（最大 CONFIG.canvasSize）
+function boardSize() {
+    const area = canvas.parentElement;
+    return Math.max(0, Math.min(area.clientWidth, area.clientHeight, CONFIG.canvasSize));
+}
+
 function draw(playerPos = session.playerPos, extraPainted = []) {
-    renderGame(canvas, { grid: session.stage.grid, filled: session.filled, extraPainted, playerPos }, CONFIG);
+    renderGame(canvas, { grid: session.stage.grid, filled: session.filled, extraPainted, playerPos }, boardSize());
+    const { painted, total } = session.progress;
+    const shown = Math.min(painted + extraPainted.length, total);
+    $('progress-bar').style.width = `${(shown / total) * 100}%`;
+    $('progress-text').textContent = `${shown}/${total}`;
 }
 
 // ステージが切り替わった（またはやり直した）後の表示更新
@@ -140,7 +153,8 @@ function updateStageView() {
         finishGame();
         return;
     }
-    $('stage-number').textContent = `STAGE ${session.stageIndex + 1} / ${session.stageTotal}`;
+    $('stage-number').textContent = String(session.stageIndex + 1);
+    $('stage-total').textContent = `/ ${session.stageTotal}`;
     draw();
 }
 
@@ -209,10 +223,10 @@ $('btn-skip-stage').onclick = () => {
     updateStageView();
 };
 
-// 画面サイズ・解像度の変化に合わせて描き直す
-window.addEventListener('resize', () => {
-    if (currentScreen() === 'screen-game' && session.phase !== PHASE.FINISHED) draw();
-});
+// 盤面の領域の大きさが変わったら描き直す（画面回転、Web フォント読み込み後のレイアウト変化など）
+new ResizeObserver(() => {
+    if (currentScreen() === 'screen-game' && session && session.phase !== PHASE.FINISHED && !cancelMoveAnimation) draw();
+}).observe(canvas.parentElement);
 
 // --- 5. 結果画面 ---
 function finishGame() {
