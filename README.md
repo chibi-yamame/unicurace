@@ -43,7 +43,9 @@
 ├── docs/
 │   ├── game-specification.md   # プロジェクト全体の仕様書
 │   ├── single-player-spec.md   # シングルプレイモード仕様書
-│   └── algorithm-poc3.md       # ステージ生成アルゴリズム (PoC3) の解説
+│   ├── algorithm-poc3.md       # ステージ生成アルゴリズム (PoC3) の解説
+│   ├── stage-generation-proposals.md # ステージ生成手法の計測と改善案
+│   └── code-review.md          # ソースコード・設計レビューと改修方針
 └── seeds_for_test.txt          # 検証用に控えたシード値のメモ
 ```
 
