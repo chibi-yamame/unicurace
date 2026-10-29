@@ -166,7 +166,8 @@ function generateStageViaSimulation(seed, N, moveRangeMax) {
 | 関数シグネチャ | `generateStageViaSimulation(seed, N, moveRangeMax)` | `generateStageViaSimulation(rng, N, moveRangeMax)`。呼び出し側で作った `SeededRandom` を受け取り、複数ステージで同じ乱数列を使い回す。 |
 | スタート位置 | 固定 `(0, 0)` | 乱数でランダムに決定（`x` → `y` の順に `rng.next()` を消費）。 |
 | 最初の 1 手 | 4方向 | スタートが壁際（端の行/列）の場合、壁に沿った方向のみに制限（`getWallConstrainedDirections`）。 |
-| ブロック配置 | `blocks` に追加のみ | 範囲内チェックの上、配置マスを `painted = true` にして以降のストーンが通過しないようにする。 |
+| ブロック配置 | `blocks` に追加のみ | 配置マスを `painted = true` にして以降のストーンが通過しないようにする。 |
+| 滑れる距離 | `moveRangeMax` で打ち切り | 上限なし（下記「クリア可能性の保証と `moveRangeMax`」） |
 | 返り値 | `{ grid, painted, blocks }` | `{ grid, painted, blockCount, startPos, log }`。`log` はターンごとの位置・各方向の最大距離・選択結果・ブロック配置・終了フラグ。 |
 | ブロック率の調整 | なし | `generateStageViaSimulationWithRetry` でブロック率が `[blockRatioMin, blockRatioMax]` に入るまで最大 `maxRetries`（既定 `N * 10`）回再生成。入らなければ範囲に最も近い結果を返す。 |
 
@@ -175,6 +176,6 @@ function generateStageViaSimulation(seed, N, moveRangeMax) {
 2. 各ターン: 方向のシャッフル（方向数 - 1 回）→ 移動可能な方向が見つかったら移動距離 1 回
 3. リトライ時は同じ `rng` から続けて消費するため、リトライ回数が変わると後続ステージも変わる。
 
-### クリア可能性の保証に関する前提
-ゲームではストーンは止まるまで滑るため、生成時の「進める最大距離」が `moveRangeMax` で頭打ちになると、生成時の想定経路とゲーム上の動きが一致しなくなる可能性がある。
-`moveRangeMax >= N - 1` であれば 1 方向の最大移動距離 (`N - 1`) を常にカバーできるため、保証が成り立つ。ゲーム本体は `moveRangeMax = N - 1` を使用している。
+### クリア可能性の保証と `moveRangeMax`
+ゲームではストーンは止まるまで滑るため、生成時の「進める最大距離」を `moveRangeMax` で頭打ちにすると（疑似コードの実装）、生成時の想定経路とゲーム上の動きが一致しなくなり、解のないステージができる（7x7・`moveRangeMax = 3` で 300 シード中 113 件）。
+現在の実装では滑れる距離を上限なしで計算し、`moveRangeMax` は「乱数で選ぶ移動距離の上限」としてのみ使う。これにより `moveRangeMax` の値に関わらず保証が成り立つ。`moveRangeMax >= N - 1` の場合の生成結果は以前の実装と同じ。

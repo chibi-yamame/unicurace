@@ -105,7 +105,7 @@
         <div class="seed-container">
             <span class="seed-label">シード共有 (最大6桁)</span>
             <div class="seed-input-group">
-                <input type="number" id="title-seed-input" placeholder="任意" min="0" max="999999" oninput="if(value.length>6)value=value.slice(0,6)">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" id="title-seed-input" placeholder="任意">
                 <button class="btn btn-small" id="btn-random-seed">ランダム</button>
             </div>
         </div>
@@ -162,6 +162,7 @@
         import { generateStageViaSimulationWithRetry } from './src/core/generator.js';
         import { createFilled, slidePath, canMove, isCleared } from './src/core/rules.js';
         import { renderGame } from './src/view/renderer.js';
+        import { formatTime } from './src/utils/time.js';
 
         // --- 定数定義 ---
         const CONFIG = {
@@ -183,7 +184,10 @@
             startTime: 0,
             elapsedTime: 0,
             timerId: null,
+            moveAnimationId: null, // 移動アニメーションの requestAnimationFrame ID
+            clearTimeoutId: null, // クリア後の余韻タイマー ID
             isMoving: false, // 石が移動中かどうか
+            isStageCleared: false, // クリア後、次のステージへ進むまでの間か
             penaltyTime: 0, // ペナルティの累計（ミリ秒）
             deadlockCount: 0, // 行き止まり回数
             manualResetCount: 0, // 手動リセット回数
@@ -197,6 +201,12 @@
             document.getElementById(screenId).classList.add('active');
         }
 
+        // シード入力欄: 数字以外（貼り付けを含む）を取り除く
+        const seedInputElement = document.getElementById('title-seed-input');
+        seedInputElement.addEventListener('input', () => {
+            seedInputElement.value = seedInputElement.value.replace(/[^0-9]/g, '').slice(0, 6);
+        });
+
         // シード生成ボタン
         document.getElementById('btn-random-seed').onclick = () => {
             const randomSeed = Math.floor(Math.random() * 1000000);
@@ -205,9 +215,9 @@
 
         // --- 1. タイトル画面処理 ---
         document.getElementById('btn-to-gen').onclick = () => {
-            const seedInput = document.getElementById('title-seed-input').value;
+            const seedInput = seedInputElement.value;
             // 入力がない場合は現在時刻をベースにした6桁のシードを生成
-            state.currentSeed = seedInput === '' ? (Date.now() % 1000000) : parseInt(seedInput);
+            state.currentSeed = /^[0-9]{1,6}$/.test(seedInput) ? parseInt(seedInput, 10) : (Date.now() % 1000000);
             
             document.getElementById('display-seed').textContent = `シード: ${String(state.currentSeed).padStart(6, '0')}`;
             showScreen('screen-generation');
@@ -271,23 +281,44 @@
             }, 1000);
         }
 
-        function updateTimer() {
-            const now = performance.now();
-            state.elapsedTime = (now - state.startTime) + state.penaltyTime;
-            
-            const diff = new Date(state.elapsedTime);
-            // Minutes can exceed 60 in some implementations of Date diff, so manual calculation
-            const totalSeconds = Math.floor(state.elapsedTime / 1000);
-            const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-            const s = String(diff.getUTCSeconds()).padStart(2, '0');
-            const ms = String(Math.floor(diff.getUTCMilliseconds() / 10)).padStart(2, '0');
-            
-            document.getElementById('game-timer').textContent = `${m}:${s}.${ms}`;
+        function renderTimer() {
+            state.elapsedTime = (performance.now() - state.startTime) + state.penaltyTime;
+            document.getElementById('game-timer').textContent = formatTime(state.elapsedTime);
             document.getElementById('penalty-timer').textContent = state.penaltyTime > 0 ? `+${(state.penaltyTime / 1000).toFixed(2)}s Penalty` : '';
+        }
+
+        function updateTimer() {
+            renderTimer();
             state.timerId = requestAnimationFrame(updateTimer);
         }
 
+        // 現在時刻でタイムを確定して止める
+        function stopTimer() {
+            if (state.timerId === null) return;
+            cancelAnimationFrame(state.timerId);
+            state.timerId = null;
+            renderTimer();
+        }
+
+        // 進行中の移動アニメーションと、クリア後の余韻タイマーを止める
+        function stopStageActivity() {
+            if (state.moveAnimationId !== null) cancelAnimationFrame(state.moveAnimationId);
+            if (state.clearTimeoutId !== null) clearTimeout(state.clearTimeoutId);
+            state.moveAnimationId = null;
+            state.clearTimeoutId = null;
+            state.isMoving = false;
+            state.isStageCleared = false;
+        }
+
+        // ゲームを中断して画面を移る（ギブアップ・タイトルへ）
+        function leaveGame(screenId) {
+            stopStageActivity();
+            stopTimer();
+            showScreen(screenId);
+        }
+
         function loadStage(idx) {
+            stopStageActivity();
             if (idx >= CONFIG.stageTotal) {
                 finishGame();
                 return;
@@ -307,12 +338,12 @@
         const canvasElement = document.getElementById('game-canvas');
 
         const handleInputStart = (x, y) => {
-            if (state.isMoving) return;
+            if (state.isMoving || state.isStageCleared) return;
             touchStartPos = { x, y };
         };
 
         const handleInputEnd = (x, y) => {
-            if (!touchStartPos || state.isMoving) return;
+            if (!touchStartPos || state.isMoving || state.isStageCleared) return;
             const dx = x - touchStartPos.x;
             const dy = y - touchStartPos.y;
             const absX = Math.abs(dx);
@@ -351,6 +382,8 @@
             const duration = moveDistance * CONFIG.moveSpeed * 1000; // CONFIGに基づいた移動時間
             const startTime = performance.now();
 
+            let paintedCount = 0;
+
             function animate(now) {
                 const elapsed = now - startTime;
                 const progress = Math.min(elapsed / duration, 1);
@@ -359,19 +392,19 @@
                 state.playerPos.x = startX + (targetX - startX) * progress;
                 state.playerPos.y = startY + (targetY - startY) * progress;
 
-                // 通過したマスをリアルタイムで塗りつぶし
-                // progressがある程度進んでから、あるいは整数の位置を通過した際に塗る
-                const gridX = dx !== 0 ? (progress > 0.5 ? targetX : startX) : startX;
-                const gridY = dy !== 0 ? (progress > 0.5 ? targetY : startY) : startY;
-                
-                // アニメーション中の全整数座標をマーク
-                state.currentPainted[Math.floor(state.playerPos.y + 0.5)][Math.floor(state.playerPos.x + 0.5)] = true;
+                // 石が到達したマスまでを塗る。フレームが飛んでも通過したマスを塗り漏らさない
+                const reached = Math.min(Math.floor(progress * moveDistance + 0.5), moveDistance);
+                for (; paintedCount < reached; paintedCount++) {
+                    const [px, py] = path[paintedCount];
+                    state.currentPainted[py][px] = true;
+                }
 
                 updateDisplay();
 
                 if (progress < 1) {
-                    requestAnimationFrame(animate);
+                    state.moveAnimationId = requestAnimationFrame(animate);
                 } else {
+                    state.moveAnimationId = null;
                     state.playerPos.x = targetX;
                     state.playerPos.y = targetY;
                     state.isMoving = false;
@@ -379,12 +412,16 @@
                     checkClear();
                 }
             }
-            requestAnimationFrame(animate);
+            state.moveAnimationId = requestAnimationFrame(animate);
         }
 
         function checkClear() {
             if (isCleared(state.currentPainted)) {
-                setTimeout(() => {
+                state.isStageCleared = true; // 余韻の間は操作・リセットを受け付けない
+                // 最終ステージはクリアした瞬間でタイムを確定する
+                if (state.currentStageIdx === CONFIG.stageTotal - 1) stopTimer();
+                state.clearTimeoutId = setTimeout(() => {
+                    state.clearTimeoutId = null;
                     state.currentStageIdx++;
                     loadStage(state.currentStageIdx);
                 }, 200); // クリア後の余韻
@@ -413,7 +450,7 @@
         }
 
         function resetCurrentStage(isAuto = false) {
-            if (state.isMoving) return;
+            if (state.isMoving || state.isStageCleared) return;
             if (!isAuto) state.manualResetCount++;
             state.penaltyTime += CONFIG.penaltyTime;
             showPenaltyVisual();
@@ -426,8 +463,7 @@
 
         // ギブアップ処理（タイトルに戻る）
         document.getElementById('btn-giveup').onclick = () => {
-            cancelAnimationFrame(state.timerId);
-            showScreen('screen-title');
+            leaveGame('screen-title');
         };
 
         function updateDisplay() {
@@ -438,7 +474,7 @@
         }
 
         function finishGame() {
-            cancelAnimationFrame(state.timerId);
+            stopTimer();
             const finalTime = document.getElementById('game-timer').textContent;
             document.getElementById('result-time').textContent = finalTime;
             document.getElementById('result-stats').innerHTML = `
@@ -455,8 +491,7 @@
             startStageGeneration();
         };
         document.getElementById('btn-to-title').onclick = () => {
-            cancelAnimationFrame(state.timerId);
-            showScreen('screen-title');
+            leaveGame('screen-title');
         };
 
         // デバッグ用: ステージスキップ

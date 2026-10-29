@@ -29,14 +29,18 @@
 ```
 .
 ├── index.html                  # ゲーム本体（シングルプレイ）。画面遷移・入力・タイマー等のロジックを内包
+├── package.json                # npm スクリプト（テスト・ローカルサーバー）。外部依存なし
 ├── src/
 │   ├── core/
+│   │   ├── rules.js            # ゲームルール（滑る移動・詰み判定・クリア判定）。生成・ソルバー・ゲームで共通
 │   │   ├── generator.js        # ステージ生成エンジン
 │   │   └── solver.js           # 解法を探索するDFSソルバー
 │   ├── utils/
-│   │   └── random.js           # シード付き乱数生成器 (LCG)
+│   │   ├── random.js           # シード付き乱数生成器 (LCG)
+│   │   └── time.js             # タイム表示の整形
 │   └── view/
 │       └── renderer.js         # Canvas へのゲーム盤面描画
+├── test/                       # node:test によるコアロジックのテスト
 ├── tools/
 │   └── stage-inspector/
 │       └── test_generator.html # ステージ生成・解法の検証用ブラウザツール
@@ -53,7 +57,9 @@
 
 | ファイル | エクスポート | 説明 |
 | --- | --- | --- |
-| `src/utils/random.js` | `class SeededRandom(seed)` / `next()` | `seed = (seed * 9301 + 49297) % 233280` の LCG。`[0, 1)` の値を返す。 |
+| `src/utils/random.js` | `class SeededRandom(seed)` / `next()` | `seed = (seed * 9301 + 49297) % 233280` の LCG。`[0, 1)` の値を返す。シードは `[0, 233280)` の整数に正規化される。 |
+| `src/utils/time.js` | `formatTime(ms)` | `MM:SS.cc` 形式に整形。 |
+| `src/core/rules.js` | `DIRECTIONS` / `createFilled(grid, startPos)` / `slidePath(filled, x, y, dx, dy, limit?)` / `canMove(filled, x, y)` / `isCleared(filled)` | 盤面状態 `filled[y][x]`（ブロックまたは塗り済みなら `true`）に対するルール。 |
 | `src/core/generator.js` | `generateStageViaSimulation(rng, N, moveRangeMax)` | 1 回分のステージ生成。`{ grid, painted, blockCount, startPos, log }` を返す。`grid[y][x]` は `1`=ブロック / `0`=空きマス、`startPos` は `[x, y]`。 |
 | | `generateStageViaSimulationWithRetry(rng, N, moveRangeMax, blockRatioMin = 0.2, blockRatioMax = 0.5, maxRetries = N * 10)` | ブロック率が範囲内になるまで再生成。範囲外のままなら範囲に最も近い結果を返す。返り値に `retryCount` が付く。 |
 | | `shuffleDirections(directions, rng)` / `getWallConstrainedDirections(x, y, N)` | 生成用の補助関数。 |
@@ -67,7 +73,13 @@ ES Modules (`<script type="module">`) を使っているため、`file://` で�
 ```bash
 git clone <このリポジトリ>
 cd unicurace
-python3 -m http.server 8000   # または npx serve など任意の静的サーバー
+npm start                     # = python3 -m http.server 8000（任意の静的サーバーで可）
+```
+
+テスト（Node.js 18 以上、追加のインストール不要）:
+
+```bash
+npm test
 ```
 
 - **ゲーム**: <http://localhost:8000/index.html>
@@ -95,8 +107,8 @@ python3 -m http.server 8000   # または npx serve など任意の静的サー�
 ### ステージ生成
 1. ランダムな地点からスタート（スタート位置も乱数で決定）。
 2. スタートが壁際の場合、最初の 1 手は壁に沿った方向のみに制限。
-3. 4方向をランダム順に調べ、進める最大距離（境界・塗りつぶし済みマスで停止、上限 `moveRangeMax`）を計算。
-4. 乱数で選んだ距離が最大距離より短ければ、その先にブロックを置いて「そこで止まった」ことにする。
+3. 4方向をランダム順に調べ、滑れる距離（境界・塗りつぶし済みマスで停止）を計算。
+4. 乱数で選んだ距離（1〜`moveRangeMax`）が滑れる距離より短ければ、その先にブロックを置いて「そこで止まった」ことにする。
 5. 移動不可になるまで繰り返し、最後に通らなかったマスをすべてブロックで埋める。
 6. ブロック率が目標範囲外なら再生成（最大 `N * 10` 回）。
 

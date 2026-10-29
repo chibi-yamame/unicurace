@@ -15,3 +15,25 @@ test('next() は [0, 1) の値を返す', () => {
         assert.ok(v >= 0 && v < 1, `範囲外: ${v}`);
     }
 });
+
+test('負数・小数・非数値のシードでも [0, 1) の値を返す', () => {
+    for (const seed of [-1, -99999, -1e12, 1.5, NaN, Infinity, undefined]) {
+        const rng = new SeededRandom(seed);
+        for (let i = 0; i < 100; i++) {
+            const v = rng.next();
+            assert.ok(v >= 0 && v < 1, `seed=${seed}: ${v}`);
+        }
+    }
+});
+
+test('0 以上の整数シードは正規化しても乱数列が変わらない', () => {
+    // 正規化前の実装と同じ計算
+    for (const seed of [0, 1, 12345, 233280, 999999, 69361654662]) {
+        let raw = seed;
+        const rng = new SeededRandom(seed);
+        for (let i = 0; i < 50; i++) {
+            raw = (raw * 9301 + 49297) % 233280;
+            assert.equal(rng.next(), raw / 233280, `seed=${seed}`);
+        }
+    }
+});

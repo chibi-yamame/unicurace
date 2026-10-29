@@ -49,3 +49,13 @@ test('生成結果と解法が既知の値と一致する', () => {
         assert.equal(digest(stages), hash, key);
     }
 });
+
+test('moveRangeMax が N - 1 より小さくてもクリア可能なステージになる', () => {
+    for (const moveRangeMax of [1, 2, 3]) {
+        for (let seed = 0; seed < 300; seed++) {
+            for (const stage of generateStages(seed, 7, moveRangeMax)) {
+                assert.ok(replayMoves(stage.grid, stage.startPos, movesFromLog(stage.log)), `max=${moveRangeMax} seed=${seed}`);
+            }
+        }
+    }
+});

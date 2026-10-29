@@ -2,9 +2,10 @@
  * ゲームの描画を担当するレンダラー
  */
 export function renderGame(canvas, stageData, playerPos, currentPainted, CONFIG) {
-    const N = CONFIG.gridSize;
-    // 画面サイズに合わせてキャンバスをリサイズ
-    const size = Math.min(window.innerWidth * 0.9, CONFIG.canvasSize);
+    const N = stageData.grid.length;
+    // 画面サイズに合わせてキャンバスをリサイズ。canvas.width は整数に丸められるため、
+    // 小数のまま比較すると毎フレーム再確保が走る
+    const size = Math.floor(Math.min(window.innerWidth * 0.9, CONFIG.canvasSize));
     if (canvas.width !== size) {
         canvas.width = canvas.height = size;
     }

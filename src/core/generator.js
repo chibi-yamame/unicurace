@@ -37,6 +37,10 @@ export function getWallConstrainedDirections(x, y, N) {
 
 /**
  * ステージ生成メインロジック
+ *
+ * ストーンを実際に動かしながらブロックを配置するため、生成時の経路がそのまま解になる。
+ * moveRangeMax は 1 手で進む距離を乱数で選ぶときの上限。選んだ距離が滑れる距離より
+ * 短ければ、その先にブロックを置いて止める。
  */
 export function generateStageViaSimulation(rng, N, moveRangeMax) {
     const painted = Array(N).fill().map(() => Array(N).fill(false));
@@ -66,23 +70,24 @@ export function generateStageViaSimulation(rng, N, moveRangeMax) {
         let moved = false;
 
         for (const [dx, dy] of directions) {
-            const maxDist = slidePath(painted, x, y, dx, dy, moveRangeMax).length;
+            // 滑れる距離に上限を設けない。上限で打ち切ると、ゲームでは止まらずに滑り続けて
+            // 生成時の経路と動きがずれ、解のないステージになる
+            const maxDist = slidePath(painted, x, y, dx, dy).length;
 
             const dirName = dx === 1 ? '右' : dx === -1 ? '左' : dy === 1 ? '下' : '上';
             turnLog.directions.push({ dir: dirName, maxDist });
 
             if (maxDist > 0) {
-                const choosenDist = Math.floor(rng.next() * moveRangeMax) + 1;
-                const actualDist = Math.min(choosenDist, maxDist);
-                turnLog.chosen = { dir: dirName, choosenDist, maxDist, actualDist };
+                const chosenDist = Math.floor(rng.next() * moveRangeMax) + 1;
+                const actualDist = Math.min(chosenDist, maxDist);
+                turnLog.chosen = { dir: dirName, chosenDist, maxDist, actualDist };
 
-                if (choosenDist < maxDist) {
-                    const blockX = x + dx * (choosenDist + 1);
-                    const blockY = y + dy * (choosenDist + 1);
-                    if (blockX >= 0 && blockX < N && blockY >= 0 && blockY < N) {
-                        blocks.push([blockX, blockY]);
-                        painted[blockY][blockX] = true;
-                    }
+                // 滑れる距離より手前で止めるため、止まる位置の 1 つ先にブロックを置く（必ず盤内）
+                if (chosenDist < maxDist) {
+                    const blockX = x + dx * (chosenDist + 1);
+                    const blockY = y + dy * (chosenDist + 1);
+                    blocks.push([blockX, blockY]);
+                    painted[blockY][blockX] = true;
                     turnLog.blockPlaced = true;
                 }
 
