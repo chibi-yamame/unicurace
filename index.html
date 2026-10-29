@@ -6,7 +6,7 @@
     <title>Unicurace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Dela+Gothic+One&family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;500;700;800;900&display=swap">
     <style>
         /* 夜のレース: 藍の地に、琥珀（石・タイマー）と水色（塗り跡）の 2 色 */
         :root {
@@ -26,17 +26,15 @@
             --danger: #FF6B6B;      /* ペナルティ */
             --danger-bg: #3A1430;
 
-            --font-body: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-            --font-logo: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-            --font-display: 'Dela Gothic One', 'Hiragino Sans', sans-serif;
-            --font-led: 'DotGothic16', ui-monospace, monospace;
+            /* 書体は M PLUS 1p に統一（数字が等幅なのでタイマーの桁が揺れない） */
+            --font: 'M PLUS 1p', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
             color-scheme: dark;
         }
         * { box-sizing: border-box; }
         html, body { height: 100%; }
         body {
             margin: 0;
-            font-family: var(--font-body);
+            font-family: var(--font);
             background: var(--bg);
             color: var(--text);
             overflow: hidden; /* スクロール禁止 */
@@ -57,7 +55,8 @@
         section.active { display: flex; }
         .spacer { flex: 1 1 0; min-height: 0; }
 
-        button { font-family: var(--font-body); cursor: pointer; }
+        button, input { font-family: inherit; }
+        button { cursor: pointer; white-space: nowrap; } /* ボタンの文言は折り返さない */
         button:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
         .btn-primary {
             height: 60px;
@@ -82,9 +81,10 @@
         /* 1. タイトル */
         #screen-title { gap: 40px; padding-top: max(80px, env(safe-area-inset-top, 0px)); }
         .title-head { display: flex; flex-direction: column; gap: 6px; }
-        .eyebrow { font: 600 14px var(--font-logo); letter-spacing: 0.24em; color: var(--amber); }
-        .logo { margin: 0; font: 700 76px/0.9 var(--font-logo); letter-spacing: -0.01em; color: var(--text-strong); }
+        .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: var(--amber); }
+        .logo { margin: 0; font-size: clamp(44px, 15vw, 64px); font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: var(--text-strong); white-space: nowrap; }
         .tagline { font-size: 15px; color: var(--text-muted); }
+        .tagline span { display: inline-block; white-space: nowrap; } /* 狭い画面では「―」の後で改行 */
         .title-strip { display: flex; gap: 4px; }
         .title-strip span { width: 40px; height: 40px; border-radius: 6px; flex-shrink: 1; }
         .title-strip .paint { background: var(--cyan); box-shadow: 0 0 10px rgba(53, 198, 218, 0.35); }
@@ -104,50 +104,51 @@
             border: 1.5px solid var(--line); border-radius: 12px;
             background: var(--panel); color: var(--amber);
             padding: 0 16px;
-            font: 700 30px var(--font-logo); letter-spacing: 0.3em; font-variant-numeric: tabular-nums;
+            font-size: 26px; font-weight: 800; letter-spacing: 0.24em; font-variant-numeric: tabular-nums;
         }
-        #title-seed-input::placeholder { color: var(--text-faint); font-size: 16px; letter-spacing: 0.04em; font-family: var(--font-body); font-weight: 500; }
-        #btn-random-seed { height: 56px; padding: 0 18px; border-radius: 12px; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
+        #title-seed-input::placeholder { color: var(--text-faint); font-size: 16px; letter-spacing: 0.04em; font-weight: 500; }
+        #btn-random-seed { height: 56px; padding: 0 18px; border-radius: 12px; font-size: 14px; flex-shrink: 0; }
 
         /* 2. ステージ生成 */
         #screen-generation { gap: 16px; justify-content: center; text-align: center; }
-        #gen-status-title { margin: 0; font: 400 24px var(--font-display); color: var(--text-strong); }
+        #gen-status-title { margin: 0; font-size: 24px; font-weight: 900; color: var(--text-strong); }
         #gen-progress { margin: 0; color: var(--text-muted); }
-        #display-seed { margin: 8px 0 24px; font: 400 26px var(--font-led); color: var(--amber); letter-spacing: 0.12em; text-shadow: 0 0 10px var(--amber-glow); }
+        #display-seed { margin: 8px 0 24px; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--amber); letter-spacing: 0.12em; text-shadow: 0 0 10px var(--amber-glow); }
 
         /* 3. カウントダウン */
         #screen-countdown { justify-content: center; align-items: center; }
-        #countdown-text { font: 400 120px/1 var(--font-display); color: var(--amber); text-shadow: 0 0 24px var(--amber-glow); }
+        #countdown-text { font-size: 120px; font-weight: 900; line-height: 1; color: var(--amber); text-shadow: 0 0 24px var(--amber-glow); }
 
         /* 4. ゲーム */
         #screen-game { gap: 18px; padding-top: max(24px, env(safe-area-inset-top, 0px)); padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); position: relative; }
         .game-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .game-top-left { display: flex; gap: 8px; }
-        .btn-system { height: 44px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-muted); }
-        #btn-skip-stage { padding: 0 10px; font-size: 12px; color: var(--text-faint); border-color: var(--line-soft); }
-        .lap { display: flex; align-items: baseline; gap: 6px; }
-        .lap-label { font: 400 14px var(--font-display); color: var(--text-muted); letter-spacing: 0.08em; }
-        #stage-number { font: 400 30px/1 var(--font-display); color: var(--text-strong); }
-        #stage-total { font: 400 16px var(--font-display); color: var(--text-faint); }
+        .btn-system { height: 44px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-muted); flex-shrink: 0; }
+        .game-bottom { display: flex; gap: 8px; }
+        #btn-skip-stage { height: 56px; padding: 0 12px; border-radius: 12px; font-size: 12px; font-weight: 500; color: var(--text-faint); border-color: var(--line-soft); flex-shrink: 0; }
+        .lap { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+        .lap-label { font-size: 14px; font-weight: 800; color: var(--text-muted); letter-spacing: 0.08em; }
+        #stage-number { font-size: 30px; font-weight: 900; line-height: 1; color: var(--text-strong); }
+        #stage-total { font-size: 16px; font-weight: 800; color: var(--text-faint); }
         .timer-panel {
             background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px;
             padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
         }
         .timer-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        #game-timer { font: 400 50px/1 var(--font-led); color: var(--amber); font-variant-numeric: tabular-nums; text-shadow: 0 0 12px var(--amber-glow); }
-        #penalty-timer { font-size: 13px; font-weight: 700; color: var(--danger); background: var(--danger-bg); padding: 6px 10px; border-radius: 6px; white-space: nowrap; }
+        #game-timer { font-size: clamp(28px, 10vw, 48px); min-width: 0; font-weight: 800; line-height: 1; white-space: nowrap; color: var(--amber); font-variant-numeric: tabular-nums; text-shadow: 0 0 12px var(--amber-glow); }
+        #penalty-timer { flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--danger); background: var(--danger-bg); padding: 6px 10px; border-radius: 6px; white-space: nowrap; }
         .progress-row { display: flex; align-items: center; gap: 10px; }
         .progress-track { flex: 1 1 auto; height: 6px; background: #2A2763; border-radius: 3px; overflow: hidden; }
         #progress-bar { height: 100%; width: 0; background: var(--cyan); border-radius: 3px; transition: width 0.12s; }
-        #progress-text { font: 400 13px var(--font-led); color: var(--cyan-soft); font-variant-numeric: tabular-nums; }
+        #progress-text { font-size: 13px; font-weight: 700; white-space: nowrap; color: var(--cyan-soft); font-variant-numeric: tabular-nums; }
         .board-area { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
         #game-canvas { display: block; border-radius: 14px; background: var(--panel); box-shadow: 0 0 0 1px var(--line-soft); touch-action: none; }
         #btn-reset-stage {
+            flex: 1 1 auto; min-width: 0;
             height: 56px; border: none; border-radius: 12px;
             background: var(--line-soft); color: var(--text-strong);
-            font: 400 18px var(--font-display); letter-spacing: 0.12em;
+            font-size: 18px; font-weight: 900; letter-spacing: 0.12em;
         }
-        #btn-reset-stage small { font: 500 13px var(--font-body); color: #FF8C8C; letter-spacing: 0; }
+        #btn-reset-stage small { font-size: 13px; font-weight: 500; color: #FF8C8C; letter-spacing: 0; }
 
         /* ペナルティポップアップ演出 */
         .penalty-popup {
@@ -156,7 +157,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             color: var(--danger);
-            font: 400 44px var(--font-display);
+            font-size: 44px; font-weight: 900;
             text-shadow: 0 0 16px rgba(255, 107, 107, 0.5);
             pointer-events: none;
             z-index: 1000;
@@ -169,9 +170,9 @@
 
         /* 5. 結果 */
         #screen-result { gap: 12px; justify-content: center; text-align: center; }
-        #screen-result h2 { margin: 0; font: 400 36px var(--font-display); color: var(--text-strong); }
-        .result-label { margin: 16px 0 0; font: 600 14px var(--font-logo); letter-spacing: 0.24em; color: var(--text-muted); }
-        .result-time { font: 400 56px/1.1 var(--font-led); color: var(--amber); font-variant-numeric: tabular-nums; text-shadow: 0 0 14px var(--amber-glow); }
+        #screen-result h2 { margin: 0; font-size: 36px; font-weight: 900; color: var(--text-strong); }
+        .result-label { margin: 16px 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: var(--text-muted); }
+        .result-time { font-size: clamp(40px, 14vw, 56px); font-weight: 800; line-height: 1.1; white-space: nowrap; color: var(--amber); font-variant-numeric: tabular-nums; text-shadow: 0 0 14px var(--amber-glow); }
         .result-stats { font-size: 14px; line-height: 1.8; color: var(--text-muted); margin: 8px 0 24px; }
         .result-buttons { display: flex; gap: 12px; }
         .result-buttons button { flex: 1 1 0; }
@@ -190,7 +191,7 @@
         <div class="title-head">
             <span class="eyebrow">ONE-STROKE SLIDE PUZZLE</span>
             <h1 class="logo">UNICURACE</h1>
-            <span class="tagline">ユニキュレイス ― 一筆書き塗りつぶしパズル</span>
+            <span class="tagline"><span>ユニキュレイス ―</span> <span>一筆書き塗りつぶしパズル</span></span>
         </div>
 
         <div class="title-strip" aria-hidden="true">
@@ -226,10 +227,7 @@
     <!-- 4. ゲーム画面 -->
     <section id="screen-game">
         <div class="game-top">
-            <div class="game-top-left">
-                <button type="button" class="btn-system btn-outline" id="btn-giveup">ギブアップ</button>
-                <button type="button" class="btn-system btn-outline" id="btn-skip-stage">Next(Debug)</button>
-            </div>
+            <button type="button" class="btn-system btn-outline" id="btn-giveup">ギブアップ</button>
             <div class="lap" aria-label="ステージ">
                 <span class="lap-label">LAP</span>
                 <span id="stage-number">1</span>
@@ -252,7 +250,10 @@
             <canvas id="game-canvas"></canvas>
         </div>
 
-        <button type="button" id="btn-reset-stage">リセット <small>+3秒</small></button>
+        <div class="game-bottom">
+            <button type="button" id="btn-reset-stage">リセット <small>+3秒</small></button>
+            <button type="button" class="btn-outline" id="btn-skip-stage">Next(Debug)</button>
+        </div>
     </section>
 
     <!-- 5. 結果画面 -->
