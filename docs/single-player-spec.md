@@ -14,7 +14,7 @@
 | ブロック率 | 0.15 ～ 0.35 (固定) | `blockRatioMin` / `blockRatioMax` |
 | ストーン最大移動距離（生成用） | `gridSize - 1` (= 6) | — |
 | ペナルティ | 3 秒 / 回 ※当初案は 1 秒 | `penaltyTime` (ms) |
-| ストーン移動速度 | 0.06 秒 / マス | `moveSpeed` |
+| ストーン移動速度 | 0.045 秒 / マス ※当初は 0.06 | `moveSpeed` |
 | スワイプ判定閾値 | 30 px | `swipeThreshold` |
 | キャンバス最大サイズ | 400 px（画面幅の 90% を上限） | `canvasSize` |
 | タイマー精度 | 1/100 秒 (0.01s) | — |

@@ -9,7 +9,7 @@ export const CONFIG = Object.freeze({
     blockRatioMin: 0.15,
     blockRatioMax: 0.35,
     moveRangeMax: GRID_SIZE - 1, // 生成時に 1 手で進む距離を選ぶ上限
-    moveSpeed: 0.06, // 石の移動速度（1マスあたりの秒数）
+    moveSpeed: 0.045, // 石の移動速度（1マスあたりの秒数）
     canvasSize: 400, // キャンバスの最大サイズ（CSS ピクセル）
     swipeThreshold: 30, // スワイプと判定する最小ピクセル数
     penaltyTime: 3000, // ペナルティ時間（ミリ秒）

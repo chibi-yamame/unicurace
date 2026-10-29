@@ -109,7 +109,7 @@ npm test
 | `gridSize` | 7 | ステージサイズ (N x N) |
 | `stageTotal` | 5 | 連続ステージ数 |
 | `blockRatioMin` / `blockRatioMax` | 0.15 / 0.35 | 目標ブロック率 |
-| `moveSpeed` | 0.06 | ストーン移動速度（1マスあたり秒） |
+| `moveSpeed` | 0.045 | ストーン移動速度（1マスあたり秒） |
 | `canvasSize` | 400 | キャンバスの最大サイズ (px) |
 | `swipeThreshold` | 30 | スワイプと判定する最小移動量 (px) |
 | `penaltyTime` | 3000 | リセット時のペナルティ (ms) |
