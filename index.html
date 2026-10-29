@@ -80,9 +80,9 @@
 
         /* 1. タイトル */
         #screen-title { gap: 40px; padding-top: max(80px, env(safe-area-inset-top, 0px)); }
-        .title-head { display: flex; flex-direction: column; gap: 6px; }
+        .title-head { display: flex; flex-direction: column; gap: 6px; container-type: inline-size; }
         .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: var(--amber); }
-        .logo { margin: 0; font-size: clamp(44px, 15vw, 64px); font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: var(--text-strong); white-space: nowrap; }
+        .logo { margin: 0; font-size: 14vw; font-size: min(64px, 16cqw); /* 文字列の幅は文字サイズの約 5.85 倍。16cqw ならコンテナ幅の約 94% */ font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: var(--text-strong); white-space: nowrap; }
         .tagline { font-size: 15px; color: var(--text-muted); }
         .tagline span { display: inline-block; white-space: nowrap; } /* 狭い画面では「―」の後で改行 */
         .title-strip { display: flex; gap: 4px; }
