@@ -10,8 +10,11 @@ import { renderGame } from '../view/renderer.js';
 import { animateMove } from '../view/animator.js';
 import { attachInput } from './input.js';
 import { showScreen, onLeave, currentScreen } from './screens.js';
+import { keepTextFitted } from './fit-text.js';
 
 const $ = id => document.getElementById(id);
+
+keepTextFitted();
 
 let currentSeed = 0;
 let stages = [];

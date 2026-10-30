@@ -81,7 +81,7 @@
         /* 1. タイトル */
         #screen-title { gap: 40px; padding-top: max(80px, env(safe-area-inset-top, 0px)); }
         .title-head { display: flex; flex-direction: column; gap: 6px; container-type: inline-size; }
-        .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: var(--amber); }
+        .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: var(--amber); white-space: nowrap; }
         .logo { margin: 0; font-size: 14vw; font-size: min(64px, 16cqw); /* 文字列の幅は文字サイズの約 5.85 倍。16cqw ならコンテナ幅の約 94% */ font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: var(--text-strong); white-space: nowrap; }
         .tagline { font-size: 15px; color: var(--text-muted); }
         .tagline span { display: inline-block; white-space: nowrap; } /* 狭い画面では「―」の後で改行 */
@@ -96,7 +96,7 @@
             background: var(--amber); box-shadow: 0 0 0 4px rgba(255, 182, 39, 0.25), 0 0 16px rgba(255, 182, 39, 0.7);
         }
         .seed-field { display: flex; flex-direction: column; gap: 10px; }
-        .seed-field label { font-size: 13px; font-weight: 700; color: var(--text-strong); }
+        .seed-field label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 700; color: var(--text-strong); }
         .seed-field label span { font-weight: 400; color: var(--text-muted); }
         .seed-row { display: flex; gap: 8px; }
         #title-seed-input {
@@ -148,7 +148,7 @@
             background: var(--line-soft); color: var(--text-strong);
             font-size: 18px; font-weight: 900; letter-spacing: 0.12em;
         }
-        #btn-reset-stage small { font-size: 13px; font-weight: 500; color: #FF8C8C; letter-spacing: 0; }
+        #btn-reset-stage small { font-size: 0.72em; font-weight: 500; color: #FF8C8C; letter-spacing: 0; }
 
         /* ペナルティポップアップ演出 */
         .penalty-popup {
@@ -189,8 +189,8 @@
     <!-- 1. タイトル画面 -->
     <section id="screen-title" class="active">
         <div class="title-head">
-            <span class="eyebrow">ONE-STROKE SLIDE PUZZLE</span>
-            <h1 class="logo">UNICURACE</h1>
+            <span class="eyebrow" data-fit-text>ONE-STROKE SLIDE PUZZLE</span>
+            <h1 class="logo" data-fit-text>UNICURACE</h1>
             <span class="tagline"><span>ユニキュレイス ―</span> <span>一筆書き塗りつぶしパズル</span></span>
         </div>
 
@@ -215,7 +215,7 @@
     <section id="screen-generation">
         <h2 id="gen-status-title">ステージ構築中...</h2>
         <p id="gen-progress">0 / 5 完了</p>
-        <p id="display-seed">シード: -</p>
+        <p id="display-seed" data-fit-text>シード: -</p>
         <button type="button" class="btn-primary" id="btn-to-countdown" disabled>スタート</button>
     </section>
 
@@ -237,7 +237,7 @@
 
         <div class="timer-panel">
             <div class="timer-row">
-                <div id="game-timer">00:00.00</div>
+                <div id="game-timer" data-fit-text>00:00.00</div>
                 <div id="penalty-timer" hidden></div>
             </div>
             <div class="progress-row">
@@ -251,7 +251,7 @@
         </div>
 
         <div class="game-bottom">
-            <button type="button" id="btn-reset-stage">リセット <small>+3秒</small></button>
+            <button type="button" id="btn-reset-stage" data-fit-text>リセット <small>+3秒</small></button>
             <button type="button" class="btn-outline" id="btn-skip-stage">Next(Debug)</button>
         </div>
     </section>
@@ -260,7 +260,7 @@
     <section id="screen-result">
         <h2>FINISH!</h2>
         <p class="result-label">TOTAL TIME</p>
-        <div class="result-time" id="result-time">00:00.00</div>
+        <div class="result-time" id="result-time" data-fit-text>00:00.00</div>
         <div class="result-stats" id="result-stats"></div>
         <div class="result-buttons">
             <button type="button" class="btn-primary" id="btn-restart">もう一度</button>
