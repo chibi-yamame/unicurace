@@ -82,7 +82,10 @@
         #screen-title { gap: 40px; padding-top: max(80px, env(safe-area-inset-top, 0px)); }
         .title-head { display: flex; flex-direction: column; gap: 6px; container-type: inline-size; }
         .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; color: var(--amber); white-space: nowrap; }
-        .logo { margin: 0; font-size: 14vw; font-size: min(64px, 16cqw); /* 文字列の幅は文字サイズの約 5.85 倍。16cqw ならコンテナ幅の約 94% */ font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: var(--text-strong); white-space: nowrap; }
+        /* ロゴは SVG で描く。SVG 内の文字は端末の文字サイズ設定で拡大されず、枠の幅に合わせて縮むので、どの環境でも見切れない */
+        .logo { margin: 0; line-height: 0; color: var(--text-strong); }
+        .logo svg { display: block; width: 100%; max-width: 380px; height: auto; overflow: visible; }
+        .logo text { font-family: var(--font); font-size: 100px; font-weight: 900; fill: currentColor; }
         .tagline { font-size: 15px; color: var(--text-muted); }
         .tagline span { display: inline-block; white-space: nowrap; } /* 狭い画面では「―」の後で改行 */
         .title-strip { display: flex; gap: 4px; }
@@ -190,7 +193,10 @@
     <section id="screen-title" class="active">
         <div class="title-head">
             <span class="eyebrow" data-fit-text>ONE-STROKE SLIDE PUZZLE</span>
-            <h1 class="logo" data-fit-text>UNICURACE</h1>
+            <h1 class="logo" aria-label="UNICURACE">
+                <!-- textLength で文字列の幅を viewBox の幅に固定（書体が違っても枠に収まる） -->
+                <svg viewBox="0 0 585 76" aria-hidden="true" focusable="false"><text x="0" y="73" textLength="585" lengthAdjust="spacingAndGlyphs">UNICURACE</text></svg>
+            </h1>
             <span class="tagline"><span>ユニキュレイス ―</span> <span>一筆書き塗りつぶしパズル</span></span>
         </div>
 

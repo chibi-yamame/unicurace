@@ -10,16 +10,27 @@ const FIT_SELECTOR = '[data-fit-text]';
 export function fitText(el) {
     el.style.fontSize = ''; // CSS の大きさに戻してから測る
     const range = document.createRange();
-    // 縮めた結果がさらに文字サイズ設定で拡大される場合に備え、数回まで詰める
-    for (let i = 0; i < 3; i++) {
-        // 使える幅は padding の内側。必要な幅は中身（文字と子要素）の実際の描画幅
+    // 使える幅は padding の内側。必要な幅は中身（文字と子要素）の実際の描画幅
+    const measure = () => {
         const style = getComputedStyle(el);
-        const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
         range.selectNodeContents(el);
-        const needed = range.getBoundingClientRect().width;
-        if (available <= 0 || needed <= available) return;
-        const current = parseFloat(style.fontSize);
-        el.style.fontSize = `${Math.floor(current * (available / needed) * 0.98 * 10) / 10}px`;
+        return {
+            available: el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+            needed: range.getBoundingClientRect().width,
+            fontSize: parseFloat(style.fontSize),
+        };
+    };
+    let { available, needed, fontSize } = measure();
+    // 端末の文字拡大（Android の文字自動拡大など）は文字サイズに比例しないことがあるため、
+    // 1 回で決めずに数回詰める。縮めても幅が減らなければ、悪化させないよう CSS の大きさに戻す
+    for (let i = 0; i < 5 && available > 0 && needed > available; i++) {
+        const before = needed;
+        el.style.fontSize = `${Math.floor(fontSize * (available / needed) * 0.97 * 10) / 10}px`;
+        ({ available, needed, fontSize } = measure());
+        if (needed >= before) {
+            el.style.fontSize = '';
+            return;
+        }
     }
 }
 
