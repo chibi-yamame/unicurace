@@ -14,8 +14,8 @@ const THEME = {
     block: '#7A5A3C',               // --brown
     paint: '#4F6CA6',               // --blue
     stone: '#8B2F3B',               // --red
-    stoneEdge: '#C9A24A',           // --gold（金具のような縁。青い塗り跡の上でも石が埋もれない）
-    stoneShine: 'rgba(255, 253, 248, 0.55)',
+    stoneEdge: '#F5F1E6',           // --ivory（白い縁。青い塗り跡の上でも石が埋もれない）
+    stoneShine: 'rgba(255, 253, 248, 0.55)', // ハイライト（index.html の .title-strip .stone と同じ）
     stoneShadow: 'rgba(122, 90, 60, 0.45)',
 };
 
@@ -67,7 +67,7 @@ export function renderGame(canvas, view, size) {
         }
     }
 
-    // 2. 石（金で縁取った赤い玉。ブローチのような小さな光沢）
+    // 2. 石（白で縁取った赤い玉。左上にハイライト。タイトル画面の石と同じ見た目）
     const centerX = PADDING + playerPos.x * step + cellSize / 2;
     const centerY = PADDING + playerPos.y * step + cellSize / 2;
     const r = cellSize * 0.33;

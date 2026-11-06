@@ -129,7 +129,9 @@
         .title-strip .stone { display: flex; align-items: center; justify-content: center; }
         .title-strip .stone::after {
             content: ""; width: 26px; height: 26px; border-radius: 50%;
-            background: var(--red); box-shadow: 0 0 0 3px var(--gold), 0 2px 6px rgba(122, 90, 60, 0.4);
+            /* ゲーム中の石（renderer.js）と同じ見た目: 白い縁、左上のハイライト（中心 32.5%、直径の 11%） */
+            background: radial-gradient(circle at 32.5% 32.5%, rgba(255, 253, 248, 0.55) 0 11%, transparent 11.5%), var(--red);
+            box-shadow: 0 0 0 3px var(--ivory), 0 2px 6px rgba(122, 90, 60, 0.45);
         }
         .seed-field { display: flex; flex-direction: column; gap: 10px; }
         .seed-field label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 700; color: var(--blue); }
