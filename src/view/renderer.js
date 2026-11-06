@@ -7,15 +7,15 @@
  * - playerPos:    石の位置（移動中は小数）
  * size: 表示サイズ（CSS ピクセル）。高解像度画面ではその devicePixelRatio 倍の解像度で描く
  */
+// index.html の :root の色と合わせる（アイボリーと青が基調、赤がアクセント、茶色は黒の代わり）
 const THEME = {
-    board: '#0C0A26',
-    empty: '#26235F',
-    blockEdge: '#3A3580',
-    paint: '#35C6DA',
-    paintGlow: 'rgba(53, 198, 218, 0.35)',
-    stone: '#FFB627',
-    stoneRing: 'rgba(255, 182, 39, 0.25)',
-    stoneGlow: 'rgba(255, 182, 39, 0.7)',
+    board: '#FFFDF8',               // --paper
+    empty: '#ECE4D3',               // --ivory-deep
+    block: '#7A5A3C',               // --brown
+    paint: '#4F6CA6',               // --blue
+    stone: '#8B2F3B',               // --red
+    stoneEdge: '#F5F1E6',           // --ivory（青い塗り跡の上でも石が埋もれないよう縁取る）
+    stoneShadow: 'rgba(122, 90, 60, 0.45)',
 };
 
 const PADDING = 5; // 盤面の外周余白
@@ -51,19 +51,13 @@ export function renderGame(canvas, view, size) {
         for (let x = 0; x < N; x++) {
             const [rx, ry, w, h] = cellRect(x, y);
             if (grid[y][x] === 1) {
-                // ブロック: 盤面と同じ色の窪みに縁取り
-                ctx.strokeStyle = THEME.blockEdge;
-                ctx.lineWidth = 1.5;
-                roundRect(ctx, rx + 0.75, ry + 0.75, w - 1.5, h - 1.5, RADIUS);
-                ctx.stroke();
+                ctx.fillStyle = THEME.block;
+                roundRect(ctx, rx, ry, w, h, RADIUS);
+                ctx.fill();
             } else if (filled[y][x] || painted.has(`${x},${y}`)) {
-                ctx.save();
-                ctx.shadowColor = THEME.paintGlow;
-                ctx.shadowBlur = 10;
                 ctx.fillStyle = THEME.paint;
                 roundRect(ctx, rx, ry, w, h, RADIUS);
                 ctx.fill();
-                ctx.restore();
             } else {
                 ctx.fillStyle = THEME.empty;
                 roundRect(ctx, rx, ry, w, h, RADIUS);
@@ -72,22 +66,23 @@ export function renderGame(canvas, view, size) {
         }
     }
 
-    // 2. 石（光る琥珀の玉）
+    // 2. 石（アイボリーで縁取った赤い玉）
     const centerX = PADDING + playerPos.x * step + cellSize / 2;
     const centerY = PADDING + playerPos.y * step + cellSize / 2;
     const r = cellSize * 0.33;
-    ctx.fillStyle = THEME.stoneRing;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, r + 4, 0, Math.PI * 2);
-    ctx.fill();
     ctx.save();
-    ctx.shadowColor = THEME.stoneGlow;
-    ctx.shadowBlur = 18;
+    ctx.shadowColor = THEME.stoneShadow;
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = THEME.stoneEdge;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, r + 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
     ctx.fillStyle = THEME.stone;
     ctx.beginPath();
     ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
 }
 
 function roundRect(ctx, x, y, w, h, r) {
